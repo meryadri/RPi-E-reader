@@ -7,32 +7,36 @@ A Raspberry Pi e-ink e-reader, developed and tested entirely on your laptop befo
 The app is split into three layers:
 
 1. **HAL** (`hal/`) — thin interface for display and input. On your laptop it uses a pygame window. On the Pi it will use the e-ink HAT driver. Everything above this layer is identical on both platforms.
-2. **Core engine** (`core/`) — EPUB parsing, text pagination, page rendering with Pillow, and the screen state machine.
-3. **Screens** (`screens/`) — each screen (library, reader, upload info) is a self-contained class that renders to a Pillow image and handles button events.
+2. **Core engine** (`core/`) — EPUB parsing, text pagination, page rendering with Pillow, the screen state machine, and the upload server lifecycle manager.
+3. **Screens** (`screens/`) — each screen (library, reader, settings) is a self-contained class that renders to a Pillow image and handles button events.
 
 Data flow: button press → state machine → active screen → Pillow image → display abstraction → pygame window (laptop) or e-ink HAT (Pi).
 
 ## Project structure
 
 ```
-├── main.py               # Laptop simulator entry point
-├── upload_server.py      # Flask server for wireless EPUB uploads
+├── main.py                   # Laptop simulator entry point
+├── upload_server.py          # Flask server (standalone or via settings screen)
 ├── hal/
-│   ├── display_base.py   # Abstract display interface
-│   ├── input_base.py     # Button enum and ButtonEvent
-│   └── simulator.py      # pygame backend (laptop only)
+│   ├── display_base.py       # Abstract display interface (480×800 portrait)
+│   ├── input_base.py         # Button enum and ButtonEvent
+│   └── simulator.py          # pygame backend (laptop only)
 ├── core/
-│   ├── state_machine.py  # Screen base class and state machine
-│   ├── epub_parser.py    # EPUB → text paragraphs
-│   ├── paginator.py      # Paragraphs → pages (word wrap + line fit)
-│   └── renderer.py       # Page → Pillow image
+│   ├── fonts.py              # Central font loader (CommitMono variants)
+│   ├── state_machine.py      # Screen base class and state machine
+│   ├── epub_parser.py        # EPUB → text, year, cover image
+│   ├── paginator.py          # Paragraphs → pages (word wrap + line fit)
+│   ├── renderer.py           # Page → Pillow image with progress bar
+│   └── server_manager.py     # Start/stop Flask in a background thread
 ├── screens/
-│   ├── library.py        # Book list with cursor navigation
-│   ├── reader.py         # Page-by-page reader with progress saving
-│   └── upload_info.py    # Displays the upload server URL
+│   ├── library.py            # Scrollable book list with cover thumbnails
+│   ├── reader.py             # Page-by-page reader with progress saving
+│   └── settings.py           # Font size and upload server toggle
 ├── data/
-│   └── database.py       # SQLite: books, reading progress, settings
-└── uploads/              # Uploaded EPUB files are stored here
+│   ├── database.py           # SQLite: books, progress, settings
+│   └── covers/               # Extracted cover images (auto-created)
+├── assets/fonts/             # CommitMono font files
+└── uploads/                  # Uploaded EPUB files
 ```
 
 ## Setup
@@ -45,19 +49,21 @@ pip install -r requirements.txt
 
 ## Running on your laptop
 
-**Simulator** — opens an 800×480 pygame window:
-
 ```bash
 python main.py
 ```
 
-**Upload server** — open `http://localhost:5000` in your browser to upload EPUB files:
+That's it. The simulator opens a portrait pygame window. The upload server is started and stopped from **inside the app** — press `M` to open Settings, then toggle **Upload Server ON**. The screen will show the URL to open in your browser.
+
+### Optional: run the upload server standalone
+
+If you prefer to always have the server running during development (without going through the settings screen), you can still launch it directly:
 
 ```bash
 python upload_server.py
 ```
 
-Both can run at the same time in separate terminals. Books uploaded via the web interface appear immediately in the simulator's library.
+Open `http://localhost:3003` in your browser. This is useful during development but not needed in normal use.
 
 ### Keyboard controls
 
@@ -71,7 +77,7 @@ Both can run at the same time in separate terminals. Books uploaded via the web 
 
 ## Display
 
-Target resolution: **800 × 480** pixels (matches common 7.5" e-ink HATs for the Pi).
+Target resolution: **480 × 800** pixels portrait (7.5" e-ink HAT, ~124 PPI). The simulator window is sized to match the physical footprint of the screen on your desk.
 
 ## Porting to Raspberry Pi
 
@@ -100,3 +106,4 @@ class EinkDisplay(DisplayBase):
 - [Flask](https://flask.palletsprojects.com/) — upload web server
 - [pygame](https://www.pygame.org/) — laptop simulator display and input
 - SQLite3 — built-in, no install needed
+- [Tailwind CSS](https://tailwindcss.com/) — web UI styling via CDN (no install needed)

@@ -27,7 +27,7 @@ PHYSICAL_H_IN = _DIAG_IN * DisplayBase.HEIGHT / _DIAG_PX   # ≈ 3.86"
 def _screen_dpi() -> float:
     """Return the logical DPI of the primary screen.
 
-    Uses CoreGraphics on macOS (no tkinter, no SDL conflict).
+    Uses CoreGraphics on macOS.
     Falls back to 96 on other platforms.
     """
     if platform.system() == "Darwin":
