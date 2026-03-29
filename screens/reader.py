@@ -7,7 +7,7 @@ from core.state_machine import Screen, StateMachine
 from core.epub_parser import parse_epub
 from core.paginator import paginate, DEFAULT_FONT_SIZE
 from core.renderer import render_page
-from core import fonts
+from core import fonts, page_cache
 from hal.input_base import ButtonEvent, Button
 from data.database import Book, update_progress, get_setting
 
@@ -24,12 +24,20 @@ class ReaderScreen(Screen):
     def on_enter(self) -> None:
         self._font_size = int(get_setting("font_size", str(DEFAULT_FONT_SIZE)))
         self._font_name = get_setting("font_name", fonts.COMMIT_MONO)
-        parsed = parse_epub(self._book.filepath)
-        self._pages = paginate(
-            parsed.full_text_paragraphs,
-            font_size=self._font_size,
-            font_name=self._font_name,
-        )
+
+        key = (self._book.id, self._font_size, self._font_name)
+        cached = page_cache.get(key)
+        if cached is not None:
+            self._pages = cached
+        else:
+            parsed = parse_epub(self._book.filepath)
+            self._pages = paginate(
+                parsed.full_text_paragraphs,
+                font_size=self._font_size,
+                font_name=self._font_name,
+            )
+            page_cache.put(key, self._pages)
+
         total = len(self._pages)
         self._current = min(self._book.current_page, max(0, total - 1))
         update_progress(self._book.id, self._current, total)

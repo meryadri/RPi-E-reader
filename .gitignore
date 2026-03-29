@@ -1,5 +1,8 @@
 /uploads
 /data/ereader.db
+/data/metrics_cache.pkl
 /core/__pycache__
 /data/__pycache__
 /data/covers
+/screens/__pycache__
+/tests/__pycache__

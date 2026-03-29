@@ -46,6 +46,33 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Tests
+
+```bash
+python -m pytest tests/ -v -s
+```
+
+The `-s` flag is required — timing and memory numbers are printed to stdout and would be hidden without it.
+
+To run only the pagination timing suite:
+
+```bash
+python -m pytest tests/test_pagination_timing.py -v -s
+```
+
+The timing tests require the book `uploads/Matthew Walker PhD - Why We Sleep_…epub` to be present. They cover:
+
+| Test | What it measures |
+|------|-----------------|
+| `test_parse_epub_time` | EPUB parsing time alone |
+| `test_default_settings` | Paginate at default font/size |
+| `test_font_sizes` | Speed across the 8–32 px range |
+| `test_commit_mono_vs_system` | CommitMono vs System Sans paginate time |
+| `test_word_cache_effect` | Confirms consistent per-call speed |
+| `test_word_cache_memory` | Unique word count + cache memory in KB |
+| `test_paginate_peak_memory` | Peak memory allocated during paginate() via tracemalloc |
+| `test_page_cache_hit` | Cold parse+paginate vs warm cache-hit speedup |
+
 ## Running on your laptop
 
 ```bash

@@ -77,13 +77,15 @@ _LIBRARY = _BASE.replace("{% block content %}{% endblock %}", """
   <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 mb-8">
     <h2 class="font-semibold text-base mb-4">Upload a book</h2>
     <form method="post" enctype="multipart/form-data" class="flex items-center gap-3 flex-wrap">
-      <label class="flex-1 min-w-48 cursor-pointer">
-        <div class="border-2 border-dashed border-stone-300 hover:border-stone-400 rounded-xl px-4 py-3 text-sm text-stone-500 text-center transition-colors">
-          <span id="fname">Choose an .epub file…</span>
-          <input type="file" name="epub" accept=".epub" required class="hidden"
-                 onchange="document.getElementById('fname').textContent = this.files[0]?.name || 'Choose an .epub file…'">
+      <div class="flex-1 min-w-48">
+        <div class="cursor-pointer border-2 border-dashed border-stone-300 hover:border-stone-400 rounded-xl px-4 py-3 text-sm text-stone-500 text-center transition-colors"
+             onclick="document.getElementById('epub-input').click()">
+          <span id="fname">Choose an .epub file\u2026</span>
         </div>
-      </label>
+        <input id="epub-input" type="file" name="epub" accept=".epub" required
+               style="display:none"
+               onchange="document.getElementById('fname').textContent = (this.files && this.files[0]) ? this.files[0].name : 'Choose an .epub file\u2026'">
+      </div>
       <button type="submit"
               class="bg-stone-900 text-white text-sm font-medium px-5 py-3 rounded-xl hover:bg-stone-700 transition-colors">
         Upload
@@ -150,7 +152,6 @@ _SETTINGS = _BASE.replace("{% block content %}{% endblock %}", """
                           border-stone-200 hover:border-stone-400
                           peer-checked:border-stone-900 peer-checked:bg-stone-50">
               <span class="{{ cls }} text-sm font-semibold text-stone-900">{{ label }}</span>
-              <span class="{{ cls }} text-xs text-stone-500">The quick brown fox</span>
               <span class="text-xs text-stone-400 mt-1 font-sans">{{ desc }}</span>
             </label>
           </div>
@@ -227,6 +228,8 @@ def index():
                     cover_path = _COVERS_DIR / f"cover_{book_id}.jpg"
                     cover_path.write_bytes(cover_bytes)
                     update_cover(book_id, str(cover_path))
+                from core.page_cache import invalidate
+                invalidate(book_id)
                 message = f'Added "{parsed.title}" by {parsed.author}'
             except Exception as e:
                 message = f"Error parsing EPUB: {e}"
