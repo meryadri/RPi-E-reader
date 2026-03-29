@@ -6,7 +6,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from core import fonts
 
-DEFAULT_FONT_SIZE = 22
+DEFAULT_FONT_SIZE = 16
+FONT_SIZE_MIN = 8
+FONT_SIZE_MAX = 32
 LINE_SPACING = 8
 MARGIN_X = 30
 MARGIN_Y = 44
@@ -41,8 +43,9 @@ def paginate(
     display_width: int = 480,
     display_height: int = 800,
     font_size: int = DEFAULT_FONT_SIZE,
+    font_name: str = fonts.COMMIT_MONO,
 ) -> list[Page]:
-    font = fonts.load(font_size)
+    font = fonts.load(font_size, font_name=font_name)
     bbox_sample = font.getbbox("Ag")
     line_height = (bbox_sample[3] - bbox_sample[1]) + LINE_SPACING
 

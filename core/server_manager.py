@@ -17,13 +17,22 @@ from data.database import (
     update_cover, get_setting, set_setting,
 )
 
+from core import fonts as _fonts
+
 PORT = 3003
 _UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
 _COVERS_DIR = Path(__file__).parent.parent / "data" / "covers"
 _UPLOAD_DIR.mkdir(exist_ok=True)
 _COVERS_DIR.mkdir(parents=True, exist_ok=True)
 
-FONT_SIZE_OPTIONS = [18, 20, 22, 24, 26, 28]
+FONT_SIZE_MIN = 8
+FONT_SIZE_MAX = 32
+FONT_SIZE_DEFAULT = 16
+
+_FONT_OPTIONS = [
+    (_fonts.COMMIT_MONO, "CommitMono",  "font-mono",  "Monospaced — great for readability"),
+    (_fonts.SYSTEM,      "System Sans", "font-sans",  "System sans-serif — clean and light"),
+]
 
 # ------------------------------------------------------------------
 # Flask app
@@ -125,31 +134,80 @@ _SETTINGS = _BASE.replace("{% block content %}{% endblock %}", """
   {% endif %}
 
   <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6">
-    <h2 class="font-semibold text-base mb-6">Reader settings</h2>
+    <h2 class="font-semibold text-base mb-8">Reader settings</h2>
     <form method="post">
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-stone-700 mb-3">Font size</label>
-        <div class="flex flex-wrap gap-2">
-          {% for size in font_sizes %}
-          <label class="cursor-pointer">
-            <input type="radio" name="font_size" value="{{ size }}" class="sr-only peer"
-                   {% if size == current_font_size %}checked{% endif %}>
-            <span class="px-4 py-2 rounded-xl border text-sm font-medium transition-colors
-                         border-stone-200 text-stone-600
-                         peer-checked:bg-stone-900 peer-checked:text-white peer-checked:border-stone-900
-                         hover:border-stone-400">
-              {{ size }}px
-            </span>
-          </label>
+
+      <!-- Font selector -->
+      <div class="mb-8">
+        <p class="text-sm font-medium text-stone-700 mb-3">Font</p>
+        <div class="grid grid-cols-2 gap-3">
+          {% for value, label, cls, desc in font_options %}
+          <div>
+            <input type="radio" id="font-{{ value }}" name="font_name" value="{{ value }}"
+                   class="sr-only peer" {% if value == current_font %}checked{% endif %}>
+            <label for="font-{{ value }}"
+                   class="flex flex-col gap-1 p-4 rounded-xl border-2 cursor-pointer transition-colors
+                          border-stone-200 hover:border-stone-400
+                          peer-checked:border-stone-900 peer-checked:bg-stone-50">
+              <span class="{{ cls }} text-sm font-semibold text-stone-900">{{ label }}</span>
+              <span class="{{ cls }} text-xs text-stone-500">The quick brown fox</span>
+              <span class="text-xs text-stone-400 mt-1 font-sans">{{ desc }}</span>
+            </label>
+          </div>
           {% endfor %}
         </div>
       </div>
+
+      <!-- Font size slider -->
+      <div class="mb-8">
+        <p class="text-sm font-medium text-stone-700 mb-4">
+          Font size —
+          <span id="fs-display" class="font-semibold tabular-nums">{{ current_font_size }}px</span>
+        </p>
+        <div class="flex items-center gap-4">
+          <span class="text-xs text-stone-400 w-5 shrink-0 text-right">{{ font_size_min }}</span>
+          <div class="relative flex-1">
+            <input type="range"
+                   id="font-size-range"
+                   name="font_size"
+                   min="{{ font_size_min }}" max="{{ font_size_max }}" step="1"
+                   value="{{ current_font_size }}"
+                   class="w-full h-2 rounded-lg appearance-none cursor-pointer accent-stone-900 bg-stone-200"
+                   oninput="
+                     document.getElementById('fs-display').textContent = this.value + 'px';
+                     document.getElementById('fs-preview').style.fontSize = this.value + 'px';
+                   ">
+          </div>
+          <span class="text-xs text-stone-400 w-5 shrink-0">{{ font_size_max }}</span>
+        </div>
+        <!-- Live preview -->
+        <div class="mt-5 p-4 rounded-xl bg-stone-50 border border-stone-200 overflow-hidden">
+          <p class="text-xs text-stone-400 mb-2 font-sans">Preview</p>
+          <p id="fs-preview"
+             style="font-size: {{ current_font_size }}px; line-height: 1.6;
+                    font-family: {{ 'monospace' if current_font == 'commit_mono' else 'sans-serif' }};
+                    transition: font-size 0.15s, font-family 0.1s">
+            Quidquid latine dictum sit, altum videtur.
+          </p>
+        </div>
+      </div>
+
       <button type="submit"
-              class="bg-stone-900 text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-stone-700 transition-colors">
+              class="bg-stone-900 text-white text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-stone-700 transition-colors">
         Save settings
       </button>
     </form>
   </div>
+
+  <script>
+    // Keep preview in sync with font selector
+    document.querySelectorAll('input[name="font_name"]').forEach(function(r) {
+      r.addEventListener('change', function() {
+        document.getElementById('fs-preview').style.fontFamily =
+          this.value === 'commit_mono' ? 'monospace' : 'sans-serif';
+      });
+    });
+  </script>
 """)
 
 
@@ -199,15 +257,24 @@ def cover(book_id: int):
 def settings():
     message = None
     if request.method == "POST":
-        fs = request.form.get("font_size", "22")
-        if fs.isdigit() and int(fs) in FONT_SIZE_OPTIONS:
+        # Font name
+        fn = request.form.get("font_name", _fonts.COMMIT_MONO)
+        if fn in (_fonts.COMMIT_MONO, _fonts.SYSTEM):
+            set_setting("font_name", fn)
+        # Font size
+        fs = request.form.get("font_size", str(FONT_SIZE_DEFAULT))
+        if fs.isdigit() and FONT_SIZE_MIN <= int(fs) <= FONT_SIZE_MAX:
             set_setting("font_size", fs)
-            message = "Settings saved."
-    current_font_size = int(get_setting("font_size", "22"))
+        message = "Settings saved."
+    current_font      = get_setting("font_name", _fonts.COMMIT_MONO)
+    current_font_size = int(get_setting("font_size", str(FONT_SIZE_DEFAULT)))
     return render_template_string(
         _SETTINGS,
-        font_sizes=FONT_SIZE_OPTIONS,
+        font_options=_FONT_OPTIONS,
+        current_font=current_font,
         current_font_size=current_font_size,
+        font_size_min=FONT_SIZE_MIN,
+        font_size_max=FONT_SIZE_MAX,
         message=message,
         active="settings",
     )

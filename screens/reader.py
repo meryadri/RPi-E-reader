@@ -1,12 +1,13 @@
 """
 Reader screen — renders book pages and handles navigation.
-Font size is read from the settings database on every open.
+Font size and font name are read from the settings database on every open.
 """
 from __future__ import annotations
 from core.state_machine import Screen, StateMachine
 from core.epub_parser import parse_epub
 from core.paginator import paginate, DEFAULT_FONT_SIZE
 from core.renderer import render_page
+from core import fonts
 from hal.input_base import ButtonEvent, Button
 from data.database import Book, update_progress, get_setting
 
@@ -18,13 +19,16 @@ class ReaderScreen(Screen):
         self._pages = []
         self._current = book.current_page
         self._font_size = DEFAULT_FONT_SIZE
+        self._font_name = fonts.COMMIT_MONO
 
     def on_enter(self) -> None:
         self._font_size = int(get_setting("font_size", str(DEFAULT_FONT_SIZE)))
+        self._font_name = get_setting("font_name", fonts.COMMIT_MONO)
         parsed = parse_epub(self._book.filepath)
         self._pages = paginate(
             parsed.full_text_paragraphs,
             font_size=self._font_size,
+            font_name=self._font_name,
         )
         total = len(self._pages)
         self._current = min(self._book.current_page, max(0, total - 1))
@@ -34,8 +38,8 @@ class ReaderScreen(Screen):
     def render(self):
         if not self._pages:
             img, draw = self.blank_canvas()
-            from core import fonts
-            draw.text((40, 40), "Could not render book.", font=fonts.load(18), fill="black")
+            draw.text((40, 40), "Could not render book.",
+                      font=fonts.load(18), fill="black")
             return img
         page = self._pages[self._current]
         return render_page(
@@ -43,6 +47,7 @@ class ReaderScreen(Screen):
             len(self._pages),
             self._book.title,
             font_size=self._font_size,
+            font_name=self._font_name,
         )
 
     def handle(self, event: ButtonEvent) -> None:

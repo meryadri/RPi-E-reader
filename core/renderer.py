@@ -18,12 +18,13 @@ def render_page(
     total_pages: int,
     book_title: str = "",
     font_size: int = DEFAULT_FONT_SIZE,
+    font_name: str = fonts.COMMIT_MONO,
     width: int = DisplayBase.WIDTH,
     height: int = DisplayBase.HEIGHT,
 ) -> Image.Image:
     img = Image.new("RGB", (width, height), BG_COLOR)
     draw = ImageDraw.Draw(img)
-    font = fonts.load(font_size)
+    font = fonts.load(font_size, font_name=font_name)
 
     bbox_sample = font.getbbox("Ag")
     line_height = (bbox_sample[3] - bbox_sample[1]) + LINE_SPACING
@@ -33,7 +34,7 @@ def render_page(
         draw.text((MARGIN_X, y), line, font=font, fill=FG_COLOR)
         y += line_height
 
-    # Status bar
+    # Status bar — always CommitMono regardless of reading font
     status_font = fonts.load(max(12, font_size - 6))
     pct = (page.page_number + 1) / max(1, total_pages)
     bar_y = height - 32
