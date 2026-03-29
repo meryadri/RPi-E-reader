@@ -39,7 +39,7 @@ _FONT_OPTIONS = [
 # ------------------------------------------------------------------
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
 
 _BASE = """
 <!doctype html>
@@ -78,13 +78,15 @@ _LIBRARY = _BASE.replace("{% block content %}{% endblock %}", """
     <h2 class="font-semibold text-base mb-4">Upload a book</h2>
     <form method="post" enctype="multipart/form-data" class="flex items-center gap-3 flex-wrap">
       <div class="flex-1 min-w-48">
-        <div class="cursor-pointer border-2 border-dashed border-stone-300 hover:border-stone-400 rounded-xl px-4 py-3 text-sm text-stone-500 text-center transition-colors"
-             onclick="document.getElementById('epub-input').click()">
-          <span id="fname">Choose an .epub file\u2026</span>
+        <div class="relative border-2 border-dashed border-stone-300 rounded-xl px-4 py-3 text-sm text-stone-500 text-center transition-colors" id="drop-zone">
+          <span id="fname">Choose or drop an .epub file\u2026</span>
+          <input id="epub-input" type="file" name="epub" accept=".epub" required
+                 style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer"
+                 ondragover="document.getElementById('drop-zone').classList.add('border-stone-500','bg-stone-50')"
+                 ondragleave="document.getElementById('drop-zone').classList.remove('border-stone-500','bg-stone-50')"
+                 ondrop="document.getElementById('drop-zone').classList.remove('border-stone-500','bg-stone-50')"
+                 onchange="document.getElementById('fname').textContent = (this.files && this.files[0]) ? this.files[0].name : 'Choose or drop an .epub file\u2026'">
         </div>
-        <input id="epub-input" type="file" name="epub" accept=".epub" required
-               style="display:none"
-               onchange="document.getElementById('fname').textContent = (this.files && this.files[0]) ? this.files[0].name : 'Choose an .epub file\u2026'">
       </div>
       <button type="submit"
               class="bg-stone-900 text-white text-sm font-medium px-5 py-3 rounded-xl hover:bg-stone-700 transition-colors">

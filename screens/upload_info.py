@@ -28,7 +28,7 @@ class UploadInfoScreen(Screen):
         draw.text((40, 40), "Upload Books", font=font, fill="black")
         draw.line([(40, 70), (self.WIDTH - 40, 70)], fill="black", width=1)
         draw.text((40, 100), "Open the following address in your browser:", font=font, fill="black")
-        draw.text((40, 140), f"http://{ip}:5000", font=font, fill=(0, 80, 180))
+        draw.text((40, 140), f"http://{ip}:3003", font=font, fill=(0, 80, 180))
         draw.text((40, 200), "Select an EPUB file and click Upload.", font=font, fill=(80, 80, 80))
         draw.text((40, self.HEIGHT - 40), "Press BACK to return to Library", font=font, fill=(120, 120, 120))
         return img
