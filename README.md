@@ -16,7 +16,6 @@ Data flow: button press → state machine → active screen → Pillow image →
 
 ```
 ├── main.py                   # Laptop simulator entry point
-├── upload_server.py          # Flask server (standalone or via settings screen)
 ├── hal/
 │   ├── display_base.py       # Abstract display interface (480×800 portrait)
 │   ├── input_base.py         # Button enum and ButtonEvent
@@ -27,7 +26,7 @@ Data flow: button press → state machine → active screen → Pillow image →
 │   ├── epub_parser.py        # EPUB → text, year, cover image
 │   ├── paginator.py          # Paragraphs → pages (word wrap + line fit)
 │   ├── renderer.py           # Page → Pillow image with progress bar
-│   └── server_manager.py     # Start/stop Flask in a background thread
+│   └── server_manager.py     # Flask app + start/stop lifecycle
 ├── screens/
 │   ├── library.py            # Scrollable book list with cover thumbnails
 │   ├── reader.py             # Page-by-page reader with progress saving
@@ -53,17 +52,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-That's it. The simulator opens a portrait pygame window. The upload server is started and stopped from **inside the app** — press `M` to open Settings, then toggle **Upload Server ON**. The screen will show the URL to open in your browser.
-
-### Optional: run the upload server standalone
-
-If you prefer to always have the server running during development (without going through the settings screen), you can still launch it directly:
-
-```bash
-python upload_server.py
-```
-
-Open `http://localhost:3003` in your browser. This is useful during development but not needed in normal use.
+The simulator opens a portrait pygame window. To upload books, press `M` to open Settings, toggle **Upload Server ON**, then open the URL shown on screen in your browser.
 
 ### Keyboard controls
 
