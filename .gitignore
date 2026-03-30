@@ -4,3 +4,4 @@
 /data/covers
 **/__pycache__
 *.pyc
+/HARDWARE.md
