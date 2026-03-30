@@ -104,11 +104,7 @@ _LIBRARY = _BASE.replace("{% block content %}{% endblock %}", """
     {% for b in books %}
     <div class="bg-white rounded-2xl shadow-sm border border-stone-200 flex overflow-hidden">
       <div class="w-20 shrink-0 bg-stone-100 flex items-center justify-center overflow-hidden">
-        {% if b.cover_path %}
         <img src="/cover/{{ b.id }}" alt="cover" class="w-full h-full object-cover">
-        {% else %}
-        <span class="text-3xl font-bold text-stone-300">{{ b.title[0]|upper }}</span>
-        {% endif %}
       </div>
       <div class="px-4 py-3 flex flex-col justify-center min-w-0">
         <p class="font-semibold text-sm leading-snug truncate">{{ b.title }}</p>
