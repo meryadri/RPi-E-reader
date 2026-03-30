@@ -14,7 +14,7 @@ from werkzeug.serving import make_server
 from core.epub_parser import parse_epub, extract_cover_image
 from data.database import (
     init_db, add_book, get_all_books, get_book_by_id,
-    update_cover, get_setting, set_setting,
+    update_cover, get_setting, set_setting, delete_book,
 )
 
 from core import fonts as _fonts
@@ -106,7 +106,7 @@ _LIBRARY = _BASE.replace("{% block content %}{% endblock %}", """
       <div class="w-20 shrink-0 bg-stone-100 flex items-center justify-center overflow-hidden">
         <img src="/cover/{{ b.id }}" alt="cover" class="w-full h-full object-cover">
       </div>
-      <div class="px-4 py-3 flex flex-col justify-center min-w-0">
+      <div class="px-4 py-3 flex flex-col justify-center min-w-0 flex-1">
         <p class="font-semibold text-sm leading-snug truncate">{{ b.title }}</p>
         <p class="text-stone-500 text-xs mt-0.5 truncate">{{ b.author }}{% if b.year %} · {{ b.year }}{% endif %}</p>
         {% if b.total_pages %}
@@ -118,6 +118,14 @@ _LIBRARY = _BASE.replace("{% block content %}{% endblock %}", """
         </div>
         {% endif %}
       </div>
+      <form method="post" action="/delete/{{ b.id }}" class="shrink-0 flex items-center pr-4"
+            onsubmit="return confirm('Delete \\'{{ b.title }}\\' from the library?')">
+        <button type="submit" class="text-stone-300 hover:text-red-500 transition-colors" title="Delete book">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </form>
     </div>
     {% endfor %}
   </div>
@@ -252,6 +260,28 @@ def cover(book_id: int):
         '</svg>'
     )
     return Response(svg, mimetype="image/svg+xml")
+
+
+@app.route("/delete/<int:book_id>", methods=["POST"])
+def delete(book_id: int):
+    from flask import redirect, url_for
+    from core import page_cache
+    book = get_book_by_id(book_id)
+    if book:
+        # Remove EPUB file
+        epub_path = Path(book.filepath)
+        if epub_path.exists():
+            epub_path.unlink()
+        # Remove cover image
+        if book.cover_path:
+            cover_path = Path(book.cover_path)
+            if cover_path.exists():
+                cover_path.unlink()
+        # Evict from in-memory page cache
+        page_cache.invalidate(book_id)
+        # Remove from database
+        delete_book(book_id)
+    return redirect(url_for("index"))
 
 
 @app.route("/settings", methods=["GET", "POST"])
