@@ -46,6 +46,14 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Dev reset
+
+Wipes all uploaded books, cover images, and the database (schema is re-created automatically). Also clears the word-width metrics cache.
+
+```bash
+python dev_reset.py
+```
+
 ## Tests
 
 ```bash
