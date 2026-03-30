@@ -27,7 +27,7 @@ from core.epub_parser import parse_epub
 from core.paginator import paginate, _width, DEFAULT_FONT_SIZE, FONT_SIZE_MIN, FONT_SIZE_MAX
 from core import fonts
 
-EPUB = Path("uploads/Matthew Walker PhD - Why We Sleep_ Unlocking the Power of Sleep and Dreams-Scribner (2017).epub")
+EPUB = Path("tests/leo-tolstoy_war-and-peace.epub")
 RUNS = 5   # number of timed repetitions per cold/warm block
 
 

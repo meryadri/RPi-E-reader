@@ -60,7 +60,7 @@ To run only the pagination timing suite:
 python -m pytest tests/test_pagination_timing.py -v -s
 ```
 
-The timing tests require the book `uploads/Matthew Walker PhD - Why We Sleep_…epub` to be present. They cover:
+The timing tests use `tests/leo-tolstoy_war-and-peace.epub` (committed to the repo). They cover:
 
 | Test | What it measures |
 |------|-----------------|
