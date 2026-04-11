@@ -2,12 +2,16 @@
 SQLite database layer.
 Stores books, reading progress, and settings.
 """
+import shutil
 import sqlite3
 from pathlib import Path
 from dataclasses import dataclass, field
 
 
 DB_PATH = Path(__file__).parent.parent / "data" / "ereader.db"
+_DEFAULT_BOOKS = Path(__file__).parent.parent / "default_books"
+_UPLOADS = Path(__file__).parent.parent / "uploads"
+_COVERS = Path(__file__).parent.parent / "data" / "covers"
 
 
 @dataclass
@@ -56,6 +60,49 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE books ADD COLUMN {col} TEXT NOT NULL DEFAULT {default}")
             except sqlite3.OperationalError:
                 pass  # column already exists
+
+    _seed_default_books()
+
+
+# ------------------------------------------------------------------
+# Default books — seeded from default_books/ on every init_db()
+# ------------------------------------------------------------------
+
+def _seed_default_books() -> None:
+    """Copy EPUBs from default_books/ into uploads/ and register them in the DB.
+
+    Skips any book whose filename is already in uploads/.  After a reset the
+    uploads/ directory is empty, so every default book gets re-copied and
+    re-parsed on the next launch.
+    """
+    if not _DEFAULT_BOOKS.is_dir():
+        return
+
+    _UPLOADS.mkdir(exist_ok=True)
+    _COVERS.mkdir(parents=True, exist_ok=True)
+
+    for src in sorted(_DEFAULT_BOOKS.glob("*.epub")):
+        dest = _UPLOADS / src.name
+        if dest.exists():
+            # Already copied — but make sure it's in the DB too
+            if get_book_by_path(str(dest)) is not None:
+                continue
+
+        # Copy epub into uploads/
+        shutil.copy2(src, dest)
+
+        # Parse and register (same flow as the upload server)
+        try:
+            from core.epub_parser import parse_epub, extract_cover_image
+            parsed = parse_epub(dest)
+            book_id = add_book(parsed.title, parsed.author, str(dest), parsed.year)
+            cover_bytes = extract_cover_image(dest)
+            if cover_bytes:
+                cover_path = _COVERS / f"cover_{book_id}.jpg"
+                cover_path.write_bytes(cover_bytes)
+                update_cover(book_id, str(cover_path))
+        except Exception:
+            pass  # don't let a bad default book block startup
 
 
 # ------------------------------------------------------------------
