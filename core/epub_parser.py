@@ -156,6 +156,21 @@ def _add_text_tag(tag: Tag, paragraphs: list) -> None:
             paragraphs.append(text)
 
 
+def _sole_img(tag: Tag) -> Tag | None:
+    """If a <p> contains only a single <img> (plus whitespace), return it."""
+    img = None
+    for child in tag.children:
+        if isinstance(child, Tag):
+            if child.name == "img" and img is None:
+                img = child
+            else:
+                return None
+        elif isinstance(child, NavigableString):
+            if child.strip():
+                return None   # has meaningful text alongside the image
+    return img
+
+
 def _html_to_paragraphs(
     html: bytes,
     img_map: dict[str, bytes],
@@ -207,6 +222,17 @@ def _html_to_paragraphs(
             _add_text_tag(tag, paragraphs)
 
         else:
+            # A <p> containing only a single <img> is a block image, not text
+            if tag.name == "p":
+                img_tag = _sole_img(tag)
+                if img_tag is not None:
+                    block = _make_image_block(
+                        img_tag.get("src") or "", doc_file_name, img_map,
+                        display_width, display_height,
+                    )
+                    if block:
+                        paragraphs.append(block)
+                        continue
             _add_text_tag(tag, paragraphs)
 
     return paragraphs
