@@ -106,6 +106,8 @@ def _build_word_cache(paragraphs, font_size, font_name) -> dict:
     font = fonts.load(font_size, font_name=font_name)
     cache = {" ": _width(font, " ")}
     for para in paragraphs:
+        if not isinstance(para, str):
+            continue
         for word in para.split():
             if word not in cache:
                 cache[word] = _width(font, word)

@@ -4,7 +4,7 @@ Renderer — turns a Page object into a Pillow image.
 from __future__ import annotations
 from PIL import Image, ImageDraw
 from core import fonts
-from core.paginator import Page, DEFAULT_FONT_SIZE, MARGIN_X, MARGIN_Y, LINE_SPACING
+from core.paginator import Page, ImageBlock, IMAGE_PAD, DEFAULT_FONT_SIZE, MARGIN_X, MARGIN_Y, LINE_SPACING
 from hal.display_base import DisplayBase
 
 
@@ -28,11 +28,26 @@ def render_page(
 
     bbox_sample = font.getbbox("Ag")
     line_height = (bbox_sample[3] - bbox_sample[1]) + LINE_SPACING
+    max_width = width - 2 * MARGIN_X
 
     y = MARGIN_Y
     for line in page.lines:
-        draw.text((MARGIN_X, y), line, font=font, fill=FG_COLOR)
-        y += line_height
+        if isinstance(line, ImageBlock):
+            # Centre the image horizontally and paste it
+            paste_x = MARGIN_X + (max_width - line.scaled_width) // 2
+            paste_img = line.image
+            if paste_img.mode != "RGB":
+                paste_img = paste_img.convert("RGB")
+            img.paste(paste_img, (paste_x, y))
+            # Advance y by the actual pixel height — the IMAGE_PAD sentinels
+            # that follow in page.lines are skipped, so y is not double-advanced.
+            y += line.scaled_height
+        elif line == IMAGE_PAD:
+            pass   # padding slot consumed by the image above
+        else:
+            if line:
+                draw.text((MARGIN_X, y), line, font=font, fill=FG_COLOR)
+            y += line_height
 
     # Status bar — always CommitMono regardless of reading font
     status_font = fonts.load(max(12, font_size - 6))
