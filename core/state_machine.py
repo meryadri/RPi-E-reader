@@ -56,9 +56,11 @@ class StateMachine:
         self._current = screen
         screen.on_enter()
         self._dirty = True
+        self._display.set_refresh_hint("full")
 
-    def mark_dirty(self) -> None:
+    def mark_dirty(self, hint: str = "partial") -> None:
         self._dirty = True
+        self._display.set_refresh_hint(hint)
 
     def tick(self, event: ButtonEvent | None) -> None:
         """Process one event (may be None) and redraw if needed."""

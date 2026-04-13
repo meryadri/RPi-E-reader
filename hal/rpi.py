@@ -6,12 +6,12 @@ Input    : 5–7 tactile buttons wired to GPIO with internal pull-ups.
 
 GPIO pin map (BCM numbering)
 -----------------------------
-  17 → UP
+   5 → UP         (moved from 17 — conflicts with e-ink RST)
   27 → DOWN
-  22 → LEFT      (omit if using 5-button layout)
-  23 → RIGHT     (omit if using 5-button layout)
-  24 → SELECT
-  25 → BACK
+  22 → LEFT       (omit if using 5-button layout)
+  23 → RIGHT      (omit if using 5-button layout)
+   6 → SELECT     (moved from 24 — conflicts with e-ink BUSY)
+  13 → BACK       (moved from 25 — conflicts with e-ink DC)
   26 → MENU
 
 Wiring
@@ -53,12 +53,12 @@ from hal.input_base import Button, ButtonEvent
 # Remove LEFT / RIGHT entries if using a 5-button layout.
 # ---------------------------------------------------------------------------
 GPIO_MAP: dict[int, Button] = {
-    17: Button.UP,
+    5:  Button.UP,
     27: Button.DOWN,
     22: Button.LEFT,
     23: Button.RIGHT,
-    24: Button.SELECT,
-    25: Button.BACK,
+    6:  Button.SELECT,
+    13: Button.BACK,
     26: Button.MENU,
 }
 
@@ -73,9 +73,13 @@ class RpiDisplay(DisplayBase):
     of main.py with only the display constructor swapped.
     """
 
+    # Do a full refresh every N fast refreshes to clear ghosting
+    FULL_REFRESH_INTERVAL = 100
+
     def __init__(self) -> None:
         self._event_queue: queue.Queue[ButtonEvent] = queue.Queue()
         self._running = True
+        self._fast_count = 0
 
         self._epd = self._init_display()
         self._init_gpio()
@@ -92,15 +96,31 @@ class RpiDisplay(DisplayBase):
         """
         Push a Pillow image to the e-ink panel.
 
-        E-ink refresh is slow (~2 s full, ~0.5 s partial).  The state
-        machine only calls show() when something has actually changed,
-        so this is fine.
+        Uses the refresh hint set by the state machine:
+        - "partial" → flicker-free partial refresh (page turns)
+        - "full"    → full refresh with flicker (screen switches)
+
+        A full refresh is also forced every FULL_REFRESH_INTERVAL
+        partial refreshes to clear accumulated ghosting.
         """
         if image.size != (self.WIDTH, self.HEIGHT):
             image = image.resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
-        # E-ink expects a 1-bit black/white buffer
         bw = image.convert("1")
-        self._epd.display(self._epd.getbuffer(bw))
+        buf = self._epd.getbuffer(bw)
+
+        if self._refresh_hint == "partial":
+            self._fast_count += 1
+            if self._fast_count >= self.FULL_REFRESH_INTERVAL:
+                self._epd.init()
+                self._epd.display(buf)
+                self._fast_count = 0
+            else:
+                self._epd.init_part()
+                self._epd.display_Partial(buf, 0, 0, 800, 480)
+        else:
+            self._epd.init()
+            self._epd.display(buf)
+            self._fast_count = 0
 
     def clear(self) -> None:
         self._epd.Clear()
