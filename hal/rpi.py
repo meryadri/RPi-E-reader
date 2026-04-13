@@ -197,13 +197,18 @@ class RpiDisplay(DisplayBase):
     # Internal — shutdown
     # ------------------------------------------------------------------
 
-    def _shutdown(self, *_) -> None:
-        self._running = False
+    def cleanup(self) -> None:
+        """Clear the screen and release GPIO. Call after the main loop exits."""
         try:
-            self._epd.sleep()       # low-power mode — important for panel longevity
+            self._epd.init()
+            self._epd.Clear()
+            self._epd.sleep()
         except Exception:
             pass
         try:
             self._GPIO.cleanup()
         except Exception:
             pass
+
+    def _shutdown(self, *_) -> None:
+        self._running = False

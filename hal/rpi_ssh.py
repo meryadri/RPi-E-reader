@@ -160,14 +160,18 @@ class RpiSshDisplay(DisplayBase):
     # Internal — shutdown
     # ------------------------------------------------------------------
 
-    def _shutdown(self, *_) -> None:
-        self._running = False
-        # Restore terminal settings
+    def cleanup(self) -> None:
+        """Clear the screen and restore terminal. Call after the main loop exits."""
         try:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self._old_settings)
         except Exception:
             pass
         try:
+            self._epd.init()
+            self._epd.Clear()
             self._epd.sleep()
         except Exception:
             pass
+
+    def _shutdown(self, *_) -> None:
+        self._running = False

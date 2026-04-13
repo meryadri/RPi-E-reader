@@ -35,6 +35,7 @@ def main():
         if sleep > 0:
             time.sleep(sleep)
 
+    display.cleanup()
     sys.exit(0)
 
 
