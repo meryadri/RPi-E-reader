@@ -2,15 +2,15 @@
 Settings screen.
 
 Items:
-  Font          CommitMono ↔ System Sans   (←→ or ↵ to cycle)
-  Font Size     8 – 32 px                  (← to decrease, → to increase)
-  Upload Server OFF ↔ ON                   (←→ or ↵ to toggle)
+  Font          CommitMono <-> System Sans   (<-> or enter to cycle)
+  Font Size     8 - 32 px                   (<- to decrease, -> to increase)
+  Upload Server OFF <-> ON                  (<-> or enter to toggle)
 
 Navigation:
-  ↑↓    move between items
-  ←→    change value (decrease / increase for size; cycle for others)
-  ↵     same as →
-  ESC   save and return to library
+  up/down   move between items
+  left/right  change value (decrease / increase for size; cycle for others)
+  enter     same as right
+  ESC       save and return to library
 """
 from __future__ import annotations
 import socket
@@ -23,7 +23,7 @@ from core.paginator import FONT_SIZE_MIN, FONT_SIZE_MAX, DEFAULT_FONT_SIZE
 from hal.input_base import ButtonEvent, Button
 from data.database import get_setting, set_setting
 
-MARGIN_X = 24
+MARGIN_X = 16
 ITEM_H   = 80
 
 _FONT_OPTIONS = [fonts.COMMIT_MONO, fonts.SYSTEM]
@@ -66,15 +66,15 @@ class SettingsScreen(Screen):
 
     def render(self) -> Image.Image:
         img, draw = self.blank_canvas()
-        f_header = fonts.load(20, bold=True)
-        f_label  = fonts.load(17)
-        f_value  = fonts.load(17, bold=True)
-        f_hint   = fonts.load(13)
+        f_header = fonts.load(24, bold=True)
+        f_label  = fonts.load(20)
+        f_value  = fonts.load(20, bold=True)
+        f_hint   = fonts.load(14)
 
         # Header
         draw.text((MARGIN_X, 20), "Settings", font=f_header, fill="black")
         draw.line([(MARGIN_X, 52), (self.WIDTH - MARGIN_X, 52)],
-                  fill=(180, 180, 180), width=1)
+                  fill="black", width=1)
 
         values = [
             _FONT_LABELS[self._font_name],
@@ -90,22 +90,19 @@ class SettingsScreen(Screen):
                 draw.rounded_rectangle(
                     [(MARGIN_X - 8, y - 6),
                      (self.WIDTH - MARGIN_X + 8, y + ITEM_H - 14)],
-                    radius=10, fill=(240, 240, 240),
+                    radius=10, outline="black", width=2,
                 )
 
             draw.text((MARGIN_X, y + 4), label, font=f_label, fill="black")
 
             if i == 1 and sel:
-                # Font Size selected → show  −  16 px  +
                 self._draw_stepper(draw, f_value, f_hint, y)
             else:
-                # Normal pill
-                pill_color = (30, 30, 30) if (i == 2 and self._server_on) else (100, 100, 100)
                 vw = f_value.getbbox(value)[2] - f_value.getbbox(value)[0]
                 pill_x = self.WIDTH - MARGIN_X - vw - 20
                 draw.rounded_rectangle(
-                    [(pill_x - 8, y), (self.WIDTH - MARGIN_X, y + 28)],
-                    radius=8, fill=pill_color,
+                    [(pill_x - 8, y), (self.WIDTH - MARGIN_X, y + 30)],
+                    radius=8, fill="black",
                 )
                 draw.text((pill_x, y + 2), value, font=f_value, fill="white")
 
@@ -113,28 +110,27 @@ class SettingsScreen(Screen):
         preview_y = 64 + len(_ITEMS) * ITEM_H + 12
         preview_bottom = self._draw_preview(img, draw, preview_y)
 
-        # URL when server is running — placed below the preview
+        # URL when server is running
         if self._server_on:
             url_y = preview_bottom + 14
             draw.text((MARGIN_X, url_y),
-                      "Open in your browser:", font=f_hint, fill=(120, 120, 120))
-            draw.text((MARGIN_X, url_y + 20),
+                      "Open in your browser:", font=f_hint, fill="black")
+            draw.text((MARGIN_X, url_y + 22),
                       f"http://{_local_ip()}:{server_manager.PORT}",
-                      font=fonts.load(15), fill=(0, 80, 180))
+                      font=fonts.load(17), fill="black")
 
-        # Bottom hint — changes when font size row is active
+        # Bottom hint
         if self._cursor == 1:
             hint = "← smaller   → larger   ↑↓ navigate   ESC back"
         else:
             hint = "←→/↵ change   ↑↓ navigate   ESC back"
-        draw.text((MARGIN_X, self.HEIGHT - 28), hint, font=f_hint, fill=(170, 170, 170))
+        draw.text((MARGIN_X, self.HEIGHT - 28), hint, font=f_hint, fill="black")
 
         return img
 
     def _draw_preview(self, img, draw, y_start: int) -> None:
         """Render the quote in the currently selected font and size."""
-        from PIL import Image as _Img
-        f_label   = fonts.load(11)
+        f_label   = fonts.load(13)
         f_preview = fonts.load(self._font_size, font_name=self._font_name)
 
         pad    = 14
@@ -162,29 +158,25 @@ class SettingsScreen(Screen):
 
         draw.rounded_rectangle(
             [(box_x, y_start), (box_x + box_w, y_start + box_h)],
-            radius=10, fill=(248, 248, 248),
-        )
-        draw.rounded_rectangle(
-            [(box_x, y_start), (box_x + box_w, y_start + box_h)],
-            radius=10, outline=(210, 210, 210), width=1,
+            radius=10, outline="black", width=1,
         )
 
-        draw.text((box_x + pad, y_start + 6), "Preview", font=f_label, fill=(180, 180, 180))
+        draw.text((box_x + pad, y_start + 6), "Preview", font=f_label, fill="black")
 
         y = y_start + label_h + pad
         for line in lines:
-            draw.text((box_x + pad, y), line, font=f_preview, fill=(40, 40, 40))
+            draw.text((box_x + pad, y), line, font=f_preview, fill="black")
             y += lh
 
-        return y_start + box_h  # bottom edge
+        return y_start + box_h
 
     def _draw_stepper(self, draw, f_value, f_hint, y: int) -> None:
-        """Render  −  16 px  +  for the font-size row."""
+        """Render  -  16 px  +  for the font-size row."""
         at_min = self._font_size <= FONT_SIZE_MIN
         at_max = self._font_size >= FONT_SIZE_MAX
 
-        minus_col = (200, 200, 200) if at_min else (60, 60, 60)
-        plus_col  = (200, 200, 200) if at_max else (60, 60, 60)
+        minus_col = "white" if at_min else "black"
+        plus_col  = "white" if at_max else "black"
 
         size_str = f"{self._font_size} px"
         sw = f_value.getbbox(size_str)[2] - f_value.getbbox(size_str)[0]
@@ -194,9 +186,9 @@ class SettingsScreen(Screen):
         size_x     = plus_x - sw - 14
         minus_x    = size_x - f_hint.getbbox("−")[2] - 14
 
-        draw.text((minus_x, y + 2), "−", font=fonts.load(20, bold=True), fill=minus_col)
+        draw.text((minus_x, y + 2), "−", font=fonts.load(22, bold=True), fill=minus_col)
         draw.text((size_x,  y + 2), size_str, font=f_value, fill="black")
-        draw.text((plus_x,  y + 2), "+", font=fonts.load(20, bold=True), fill=plus_col)
+        draw.text((plus_x,  y + 2), "+", font=fonts.load(22, bold=True), fill=plus_col)
 
     # ------------------------------------------------------------------
     # Input

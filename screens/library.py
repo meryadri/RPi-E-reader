@@ -15,14 +15,14 @@ from core.state_machine import Screen, StateMachine
 from hal.input_base import ButtonEvent, Button
 from data.database import get_all_books, Book
 
-MARGIN_X  = 18
-HEADER_H  = 56      # px reserved for title + separator
-ITEM_H    = 104     # px per book row
+MARGIN_X  = 16
+HEADER_H  = 56
+ITEM_H    = 104
 THUMB_W   = 62
 THUMB_H   = 86
 TEXT_X    = MARGIN_X + THUMB_W + 12
-HINT_H    = 30      # bottom hint bar
-VISIBLE   = 6       # items shown at once (6 × 104 = 624, fits in 800-56-30=714)
+HINT_H    = 30
+VISIBLE   = 6
 
 
 def _truncate(text: str, font, max_w: int) -> str:
@@ -66,27 +66,27 @@ class LibraryScreen(Screen):
     def render(self) -> PILImage.Image:
         img, draw = self.blank_canvas()
 
-        f_header  = fonts.load(20, bold=True)
-        f_title   = fonts.load(17, bold=True)
-        f_author  = fonts.load(14)
-        f_meta    = fonts.load(13, italic=True)
-        f_hint    = fonts.load(12)
+        f_header  = fonts.load(24, bold=True)
+        f_title   = fonts.load(20, bold=True)
+        f_author  = fonts.load(16)
+        f_meta    = fonts.load(15)
+        f_hint    = fonts.load(14)
 
         # Header
-        draw.text((MARGIN_X, 16), "Library", font=f_header, fill="black")
+        draw.text((MARGIN_X, 16), "Adrien's Library", font=f_header, fill="black")
         draw.line(
             [(MARGIN_X, HEADER_H - 6), (self.WIDTH - MARGIN_X, HEADER_H - 6)],
-            fill=(200, 200, 200), width=1,
+            fill="black", width=1,
         )
 
         if not self._books:
             draw.text(
                 (MARGIN_X, HEADER_H + 24),
                 "No books yet.  Upload via the web interface.",
-                font=f_author, fill=(150, 150, 150),
+                font=f_author, fill="black",
             )
         else:
-            text_max_w = self.WIDTH - TEXT_X - MARGIN_X - 14  # leave room for scroll bar
+            text_max_w = self.WIDTH - TEXT_X - MARGIN_X - 14
 
             visible_books = self._books[self._scroll: self._scroll + VISIBLE]
             for i, book in enumerate(visible_books):
@@ -94,11 +94,11 @@ class LibraryScreen(Screen):
                 y = HEADER_H + i * ITEM_H
                 selected = abs_idx == self._cursor
 
-                # Row highlight
+                # Row highlight — black outline instead of gray fill
                 if selected:
                     draw.rounded_rectangle(
                         [(MARGIN_X - 6, y + 4), (self.WIDTH - MARGIN_X + 6, y + ITEM_H - 4)],
-                        radius=10, fill=(240, 240, 240),
+                        radius=10, outline="black", width=2,
                     )
 
                 # Cover thumbnail
@@ -106,29 +106,28 @@ class LibraryScreen(Screen):
                 thumb_x, thumb_y = MARGIN_X, y + (ITEM_H - THUMB_H) // 2
                 if thumb:
                     img.paste(thumb, (thumb_x, thumb_y))
-                    if selected:
-                        draw.rectangle(
-                            [(thumb_x, thumb_y), (thumb_x + THUMB_W, thumb_y + THUMB_H)],
-                            outline=(180, 180, 180), width=1,
-                        )
+                    draw.rectangle(
+                        [(thumb_x, thumb_y), (thumb_x + THUMB_W, thumb_y + THUMB_H)],
+                        outline="black", width=1,
+                    )
                 else:
                     draw.rounded_rectangle(
                         [(thumb_x, thumb_y), (thumb_x + THUMB_W, thumb_y + THUMB_H)],
-                        radius=4, fill=(220, 220, 220),
+                        radius=4, outline="black", width=1,
                     )
                     initial = (book.title[0].upper()) if book.title else "?"
                     draw.text(
                         (thumb_x + THUMB_W // 2 - 8, thumb_y + THUMB_H // 2 - 14),
-                        initial, font=fonts.load(22, bold=True), fill=(160, 160, 160),
+                        initial, font=fonts.load(22, bold=True), fill="black",
                     )
 
                 # Text block
-                tx, ty = TEXT_X, y + 14
+                tx, ty = TEXT_X, y + 10
                 title_str  = _truncate(book.title, f_title, text_max_w)
                 author_str = _truncate(book.author, f_author, text_max_w)
 
                 draw.text((tx, ty),      title_str,  font=f_title,  fill="black")
-                draw.text((tx, ty + 24), author_str, font=f_author, fill=(90, 90, 90))
+                draw.text((tx, ty + 26), author_str, font=f_author, fill="black")
 
                 meta_parts = []
                 if book.year:
@@ -137,7 +136,7 @@ class LibraryScreen(Screen):
                     pct = int(book.current_page / book.total_pages * 100)
                     meta_parts.append(f"p.{book.current_page}/{book.total_pages}  ({pct}%)")
                 if meta_parts:
-                    draw.text((tx, ty + 46), "  ·  ".join(meta_parts), font=f_meta, fill=(140, 140, 140))
+                    draw.text((tx, ty + 52), "  ·  ".join(meta_parts), font=f_meta, fill="black")
 
             # Scroll bar (right edge)
             if len(self._books) > VISIBLE:
@@ -147,25 +146,25 @@ class LibraryScreen(Screen):
                 bar_h = bar_bot - bar_top
                 draw.rounded_rectangle(
                     [(bar_x, bar_top), (bar_x + 4, bar_bot)],
-                    radius=2, fill=(220, 220, 220),
+                    radius=2, outline="black", width=1,
                 )
                 handle_frac = VISIBLE / len(self._books)
                 handle_h = max(20, int(bar_h * handle_frac))
                 handle_top = bar_top + int((self._scroll / len(self._books)) * bar_h)
                 draw.rounded_rectangle(
                     [(bar_x, handle_top), (bar_x + 4, handle_top + handle_h)],
-                    radius=2, fill=(100, 100, 100),
+                    radius=2, fill="black",
                 )
 
         # Bottom hint
         draw.line(
             [(MARGIN_X, self.HEIGHT - HINT_H - 2), (self.WIDTH - MARGIN_X, self.HEIGHT - HINT_H - 2)],
-            fill=(220, 220, 220), width=1,
+            fill="black", width=1,
         )
         draw.text(
             (MARGIN_X, self.HEIGHT - HINT_H + 4),
             "↑↓ navigate   ↵ open   M settings",
-            font=f_hint, fill=(170, 170, 170),
+            font=f_hint, fill="black",
         )
 
         return img

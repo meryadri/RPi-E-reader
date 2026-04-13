@@ -28,8 +28,8 @@ DEFAULT_FONT_SIZE = 16
 FONT_SIZE_MIN = 8
 FONT_SIZE_MAX = 32
 LINE_SPACING = 8
-MARGIN_X = 30
-MARGIN_Y = 44
+MARGIN_X = 16
+MARGIN_Y = 20
 
 # Sentinel appended after an ImageBlock to consume line-slot budget.
 # Distinct from "" (paragraph separator) so the renderer can skip it.

@@ -2,7 +2,7 @@
 Upload info screen — shows the Flask server URL so the user knows where to upload books.
 """
 from __future__ import annotations
-from PIL import ImageFont
+from core import fonts
 from core.state_machine import Screen, StateMachine
 from hal.input_base import ButtonEvent, Button
 import socket
@@ -22,15 +22,19 @@ def _local_ip() -> str:
 class UploadInfoScreen(Screen):
     def render(self):
         img, draw = self.blank_canvas()
-        font = ImageFont.load_default()
         ip = _local_ip()
 
-        draw.text((40, 40), "Upload Books", font=font, fill="black")
-        draw.line([(40, 70), (self.WIDTH - 40, 70)], fill="black", width=1)
-        draw.text((40, 100), "Open the following address in your browser:", font=font, fill="black")
-        draw.text((40, 140), f"http://{ip}:3003", font=font, fill=(0, 80, 180))
-        draw.text((40, 200), "Select an EPUB file and click Upload.", font=font, fill=(80, 80, 80))
-        draw.text((40, self.HEIGHT - 40), "Press BACK to return to Library", font=font, fill=(120, 120, 120))
+        f_title = fonts.load(24, bold=True)
+        f_body  = fonts.load(18)
+        f_url   = fonts.load(20, bold=True)
+        f_hint  = fonts.load(16)
+
+        draw.text((16, 40), "Upload Books", font=f_title, fill="black")
+        draw.line([(16, 76), (self.WIDTH - 16, 76)], fill="black", width=1)
+        draw.text((16, 100), "Open in your browser:", font=f_body, fill="black")
+        draw.text((16, 140), f"http://{ip}:3003", font=f_url, fill="black")
+        draw.text((16, 200), "Select an EPUB file and click Upload.", font=f_body, fill="black")
+        draw.text((16, self.HEIGHT - 40), "Press BACK to return to Library", font=f_hint, fill="black")
         return img
 
     def handle(self, event: ButtonEvent) -> None:

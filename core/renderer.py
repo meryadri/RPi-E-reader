@@ -10,7 +10,7 @@ from hal.display_base import DisplayBase
 
 BG_COLOR = "white"
 FG_COLOR = "black"
-STATUS_COLOR = (120, 120, 120)
+STATUS_COLOR = "black"
 
 
 def render_page(
@@ -33,35 +33,32 @@ def render_page(
     y = MARGIN_Y
     for line in page.lines:
         if isinstance(line, ImageBlock):
-            # Centre the image horizontally and paste it
             paste_x = MARGIN_X + (max_width - line.scaled_width) // 2
             paste_img = line.image
             if paste_img.mode != "RGB":
                 paste_img = paste_img.convert("RGB")
             img.paste(paste_img, (paste_x, y))
-            # Advance y by the actual pixel height — the IMAGE_PAD sentinels
-            # that follow in page.lines are skipped, so y is not double-advanced.
             y += line.scaled_height
         elif line == IMAGE_PAD:
-            pass   # padding slot consumed by the image above
+            pass
         else:
             if line:
                 draw.text((MARGIN_X, y), line, font=font, fill=FG_COLOR)
             y += line_height
 
-    # Status bar — always CommitMono regardless of reading font
-    status_font = fonts.load(max(12, font_size - 6))
+    # Status bar
+    status_font = fonts.load(max(12, font_size - 4))
     pct = (page.page_number + 1) / max(1, total_pages)
-    bar_y = height - 32
-    draw.line([(MARGIN_X, bar_y), (width - MARGIN_X, bar_y)], fill=(200, 200, 200), width=1)
+    bar_y = height - 36
+    draw.line([(MARGIN_X, bar_y), (width - MARGIN_X, bar_y)], fill="black", width=1)
     # Progress fill
     fill_w = int((width - 2 * MARGIN_X) * pct)
-    draw.line([(MARGIN_X, bar_y), (MARGIN_X + fill_w, bar_y)], fill=(80, 80, 80), width=2)
+    draw.line([(MARGIN_X, bar_y), (MARGIN_X + fill_w, bar_y)], fill="black", width=2)
 
-    title_trunc = book_title[:28] + "…" if len(book_title) > 28 else book_title
-    draw.text((MARGIN_X, bar_y + 6), title_trunc, font=status_font, fill=STATUS_COLOR)
+    title_trunc = book_title[:34] + "…" if len(book_title) > 34 else book_title
+    draw.text((MARGIN_X, bar_y + 8), title_trunc, font=status_font, fill=STATUS_COLOR)
     page_str = f"{page.page_number + 1}/{total_pages}"
     pbbox = status_font.getbbox(page_str)
-    draw.text((width - MARGIN_X - (pbbox[2] - pbbox[0]), bar_y + 6), page_str, font=status_font, fill=STATUS_COLOR)
+    draw.text((width - MARGIN_X - (pbbox[2] - pbbox[0]), bar_y + 8), page_str, font=status_font, fill=STATUS_COLOR)
 
     return img
