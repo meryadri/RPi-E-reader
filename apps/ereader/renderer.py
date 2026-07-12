@@ -3,9 +3,12 @@ Renderer — turns a Page object into a Pillow image.
 """
 from __future__ import annotations
 from PIL import Image, ImageDraw
-from core import fonts
-from core.paginator import Page, ImageBlock, IMAGE_PAD, DEFAULT_FONT_SIZE, MARGIN_X, MARGIN_Y, LINE_SPACING
-from hal.display_base import DisplayBase
+from display import fonts
+from apps.ereader.paginator import Page, ImageBlock, IMAGE_PAD, DEFAULT_FONT_SIZE, MARGIN_X, MARGIN_Y, LINE_SPACING
+
+# The e-reader is always portrait.
+PORTRAIT_WIDTH = 480
+PORTRAIT_HEIGHT = 800
 
 
 BG_COLOR = "white"
@@ -19,8 +22,8 @@ def render_page(
     book_title: str = "",
     font_size: int = DEFAULT_FONT_SIZE,
     font_name: str = fonts.COMMIT_MONO,
-    width: int = DisplayBase.WIDTH,
-    height: int = DisplayBase.HEIGHT,
+    width: int = PORTRAIT_WIDTH,
+    height: int = PORTRAIT_HEIGHT,
 ) -> Image.Image:
     img = Image.new("RGB", (width, height), BG_COLOR)
     draw = ImageDraw.Draw(img)

@@ -45,8 +45,8 @@ import signal
 import threading
 import time
 from PIL import Image
-from hal.display_base import DisplayBase
-from hal.input_base import Button, ButtonEvent
+from display.hal.display_base import DisplayBase
+from display.hal.input_base import Button, ButtonEvent
 
 # ---------------------------------------------------------------------------
 # GPIO pin → Button mapping  (BCM numbering)
@@ -76,7 +76,8 @@ class RpiDisplay(DisplayBase):
     # Do a full refresh every N fast refreshes to clear ghosting
     FULL_REFRESH_INTERVAL = 100
 
-    def __init__(self) -> None:
+    def __init__(self, width: int, height: int) -> None:
+        super().__init__(width, height)
         self._event_queue: queue.Queue[ButtonEvent] = queue.Queue()
         self._running = True
         self._fast_count = 0
@@ -103,8 +104,8 @@ class RpiDisplay(DisplayBase):
         A full refresh is also forced every FULL_REFRESH_INTERVAL
         partial refreshes to clear accumulated ghosting.
         """
-        if image.size != (self.WIDTH, self.HEIGHT):
-            image = image.resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
+        if image.size != (self.width, self.height):
+            image = image.resize((self.width, self.height), Image.LANCZOS)
         bw = image.convert("1")
         buf = self._epd.getbuffer(bw)
 
@@ -116,6 +117,9 @@ class RpiDisplay(DisplayBase):
                 self._fast_count = 0
             else:
                 self._epd.init_part()
+                # 800×480 is the panel's native (landscape) resolution — the
+                # partial region always spans the whole panel regardless of the
+                # app's logical orientation.  Verify on-device if this changes.
                 self._epd.display_Partial(buf, 0, 0, 800, 480)
         else:
             self._epd.init()

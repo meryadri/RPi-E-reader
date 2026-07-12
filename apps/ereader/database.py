@@ -8,10 +8,13 @@ from pathlib import Path
 from dataclasses import dataclass, field
 
 
-DB_PATH = Path(__file__).parent.parent / "data" / "ereader.db"
-_DEFAULT_BOOKS = Path(__file__).parent.parent / "default_books"
-_UPLOADS = Path(__file__).parent.parent / "uploads"
-_COVERS = Path(__file__).parent.parent / "data" / "covers"
+# Repo root (apps/ereader/database.py → parents[2]).  On-disk data dirs stay
+# at the repo root, unchanged by the package reorg.
+_ROOT = Path(__file__).resolve().parents[2]
+DB_PATH = _ROOT / "data" / "ereader.db"
+_DEFAULT_BOOKS = _ROOT / "default_books"
+_UPLOADS = _ROOT / "uploads"
+_COVERS = _ROOT / "data" / "covers"
 
 
 @dataclass
@@ -93,7 +96,7 @@ def _seed_default_books() -> None:
 
         # Parse and register (same flow as the upload server)
         try:
-            from core.epub_parser import parse_epub, extract_cover_image
+            from apps.ereader.epub_parser import parse_epub, extract_cover_image
             parsed = parse_epub(dest)
             book_id = add_book(parsed.title, parsed.author, str(dest), parsed.year)
             cover_bytes = extract_cover_image(dest)

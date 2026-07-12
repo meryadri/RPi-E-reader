@@ -1,41 +1,65 @@
-# RPi E-Reader
+# RPi E-ink Platform
 
-A Raspberry Pi e-ink e-reader, developed and tested entirely on your laptop before touching any hardware.
+A Raspberry Pi e-ink platform (Waveshare 7.5" 800×480 HAT), developed and tested
+entirely on your laptop before touching hardware. A small reusable **display core**
+hosts multiple **apps**:
+
+- **E-reader** — portrait, button-driven EPUB reader with a wireless upload site.
+- **Dashboard** — landscape, no buttons; shows the time, weather, calendar events,
+  and a running training plan. (Data is currently a hardcoded stub — see below.)
 
 ## How it works
 
-The app is split into three layers:
+The code is split into a reusable core and per-app packages:
 
-1. **HAL** (`hal/`) — thin interface for display and input. On your laptop it uses a pygame window. On the Pi it will use the e-ink HAT driver. Everything above this layer is identical on both platforms.
-2. **Core engine** (`core/`) — EPUB parsing, text pagination, page rendering with Pillow, the screen state machine, and the upload server lifecycle manager.
-3. **Screens** (`screens/`) — each screen (library, reader, settings) is a self-contained class that renders to a Pillow image and handles button events.
+1. **Display core** (`display/`) — everything app-agnostic:
+   - `hal/` — thin display + input interface. On your laptop it uses a pygame
+     window (`simulator.py`); on the Pi it uses the e-ink HAT (`rpi.py` for GPIO
+     buttons, `rpi_ssh.py` for keyboard-over-SSH). Everything above the HAL is
+     identical on both platforms.
+   - `runtime.py` — the `Screen` base class, `StateMachine`, the `App` descriptor,
+     and the shared main loop (`run()`). Orientation is a per-app `(width, height)`:
+     `PORTRAIT = (480, 800)`, `LANDSCAPE = (800, 480)`.
+   - `fonts.py` — central font loader (CommitMono variants + system fallback).
+2. **Apps** (`apps/`) — each app declares an `APP` object (orientation, root screen,
+   whether it uses input) in its `app.py`, and provides its own screens.
 
-Data flow: button press → state machine → active screen → Pillow image → display abstraction → pygame window (laptop) or e-ink HAT (Pi).
+Data flow: input event → state machine → active screen → Pillow image → display
+abstraction → pygame window (laptop) or e-ink HAT (Pi). Orientation is chosen by the
+app, so the same core renders portrait or landscape without changes to screen code.
 
 ## Project structure
 
 ```
-├── main.py                   # Laptop simulator entry point
-├── hal/
-│   ├── display_base.py       # Abstract display interface (480×800 portrait)
-│   ├── input_base.py         # Button enum and ButtonEvent
-│   └── simulator.py          # pygame backend (laptop only)
-├── core/
-│   ├── fonts.py              # Central font loader (CommitMono variants)
-│   ├── state_machine.py      # Screen base class and state machine
-│   ├── epub_parser.py        # EPUB → text, year, cover image
-│   ├── paginator.py          # Paragraphs → pages (word wrap + line fit)
-│   ├── renderer.py           # Page → Pillow image with progress bar
-│   └── server_manager.py     # Flask app + start/stop lifecycle
-├── screens/
-│   ├── library.py            # Scrollable book list with cover thumbnails
-│   ├── reader.py             # Page-by-page reader with progress saving
-│   └── settings.py           # Font size and upload server toggle
-├── data/
-│   ├── database.py           # SQLite: books, progress, settings
-│   └── covers/               # Extracted cover images (auto-created)
-├── assets/fonts/             # CommitMono font files
-└── uploads/                  # Uploaded EPUB files
+├── main.py                       # Launcher:  --app ereader|dashboard  --backend sim|rpi|rpi_ssh
+├── display/                      # Reusable, app-agnostic display core
+│   ├── runtime.py                # Screen, StateMachine, App, run(), PORTRAIT/LANDSCAPE
+│   ├── fonts.py                  # Central font loader (CommitMono + system)
+│   └── hal/
+│       ├── display_base.py       # Abstract display (per-instance width/height)
+│       ├── input_base.py         # Button enum and ButtonEvent
+│       ├── simulator.py          # pygame backend (laptop)
+│       ├── rpi.py                # Waveshare e-ink + GPIO buttons (Pi)
+│       └── rpi_ssh.py            # Waveshare e-ink + keyboard over SSH (Pi)
+├── apps/
+│   ├── ereader/                  # Portrait EPUB reader
+│   │   ├── app.py                # APP = App(... PORTRAIT ...)
+│   │   ├── epub_parser.py        # EPUB → text, year, cover image
+│   │   ├── paginator.py          # Paragraphs → pages (word wrap + line fit)
+│   │   ├── renderer.py           # Page → Pillow image with progress bar
+│   │   ├── page_cache.py         # In-memory paginated-page cache
+│   │   ├── metrics_cache.py      # Persistent word-width metrics cache
+│   │   ├── server.py             # Flask upload site + start/stop lifecycle
+│   │   ├── database.py           # SQLite: books, progress, settings
+│   │   └── screens/              # library, reader, settings, upload_info
+│   └── dashboard/                # Landscape info dashboard (no buttons)
+│       ├── app.py                # APP = App(... LANDSCAPE, uses_input=False ...)
+│       ├── data.py               # HARDCODED data stub — swap for real APIs later
+│       └── screens/dashboard.py  # Clock, weather, calendar, training layout
+├── data/                         # ereader.db, covers/, metrics_cache.pkl (auto-created)
+├── assets/fonts/                 # CommitMono font files
+├── default_books/                # Seed EPUBs added on first run
+└── uploads/                      # Uploaded EPUB files
 ```
 
 ## Setup
@@ -46,9 +70,56 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Running on your laptop
+
+The launcher picks the app (which sets orientation) and the display backend
+(`sim` by default):
+
+```bash
+python main.py --app ereader      # portrait e-reader
+python main.py --app dashboard     # landscape dashboard
+```
+
+The simulator window is sized to match the physical footprint of the 7.5" panel,
+so a portrait app opens a tall window and a landscape app a wide one.
+
+### E-reader
+Button-driven. To upload books, press `M` to open Settings, toggle
+**Upload Server ON**, then open the URL shown on screen in your browser.
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate list / scroll |
+| `←` / `→` | Previous / next page |
+| `Enter` | Select / open |
+| `Esc` | Back |
+| `M` | Menu |
+
+### Dashboard
+No input — it just displays. The clock refreshes once a minute. All content comes
+from `apps/dashboard/data.py`, which currently returns **hardcoded** values. That
+module is the single seam to replace later with real sources (a weather API, Google
+Calendar, a training-plan feed or upload site); the screen layout won't need to change.
+
+## Running on the Raspberry Pi
+
+The e-ink backends already exist — select one with `--backend`:
+
+```bash
+python main.py --app ereader  --backend rpi_ssh   # e-ink output, control over SSH keyboard
+python main.py --app ereader  --backend rpi        # e-ink output, GPIO buttons
+python main.py --app dashboard --backend rpi        # dashboard on e-ink (landscape is native)
+```
+
+The Waveshare Python library is not on PyPI — install it from their repo (see the
+header of `display/hal/rpi.py` for the exact commands and the GPIO pin map). Landscape
+is the panel's native orientation; the portrait e-reader is rendered 480×800 and the
+HAL handles the rest.
+
 ## Dev reset
 
-Wipes all uploaded books, cover images, and the database (schema is re-created automatically). Also clears the word-width metrics cache.
+Wipes all uploaded books, cover images, and the database (schema is re-created
+automatically). Also clears the word-width metrics cache.
 
 ```bash
 python dev_reset.py
@@ -60,7 +131,8 @@ python dev_reset.py
 python -m pytest tests/ -v -s
 ```
 
-The `-s` flag is required — timing and memory numbers are printed to stdout and would be hidden without it.
+The `-s` flag is required — timing and memory numbers are printed to stdout and would
+be hidden without it.
 
 To run only the pagination timing suite:
 
@@ -68,7 +140,8 @@ To run only the pagination timing suite:
 python -m pytest tests/test_pagination_timing.py -v -s
 ```
 
-The timing tests use `tests/leo-tolstoy_war-and-peace.epub` (committed to the repo). They cover:
+The timing tests use `tests/leo-tolstoy_war-and-peace.epub` (committed to the repo).
+They cover:
 
 | Test | What it measures |
 |------|-----------------|
@@ -81,53 +154,27 @@ The timing tests use `tests/leo-tolstoy_war-and-peace.epub` (committed to the re
 | `test_paginate_peak_memory` | Peak memory allocated during paginate() via tracemalloc |
 | `test_page_cache_hit` | Cold parse+paginate vs warm cache-hit speedup |
 
-## Running on your laptop
+## Adding a new app
 
-```bash
-python main.py
-```
-
-The simulator opens a portrait pygame window. To upload books, press `M` to open Settings, toggle **Upload Server ON**, then open the URL shown on screen in your browser.
-
-### Keyboard controls
-
-| Key | Action |
-|-----|--------|
-| `↑` / `↓` | Navigate list / scroll |
-| `←` / `→` | Previous / next page |
-| `Enter` | Select / open |
-| `Esc` | Back |
-| `M` | Menu |
+1. Create `apps/<name>/app.py` exporting `APP = App(name=..., size=PORTRAIT|LANDSCAPE,
+   build_root=..., uses_input=..., setup=...)`.
+2. Add screens under `apps/<name>/screens/` subclassing `display.runtime.Screen`
+   (implement `render()` and `handle()`; override `poll()` for timer-driven redraws).
+3. Add the name to the launcher's `--app` choices in `main.py`.
 
 ## Display
 
-Target resolution: **480 × 800** pixels portrait (7.5" e-ink HAT, ~124 PPI). The simulator window is sized to match the physical footprint of the screen on your desk.
-
-## Porting to Raspberry Pi
-
-Only one new file is needed: `hal/eink.py`. Implement the `DisplayBase` interface using your e-ink HAT's Python library, then swap it in at the top of `main.py`. All core logic, screens, and the database layer stay untouched.
-
-```python
-# hal/eink.py  (skeleton)
-from hal.display_base import DisplayBase
-from PIL import Image
-
-class EinkDisplay(DisplayBase):
-    def show(self, image: Image.Image) -> None:
-        # call your HAT library here
-        ...
-
-    def clear(self) -> None:
-        # call your HAT library here
-        ...
-```
+Physical panel: **800 × 480** pixels (7.5" Waveshare e-ink HAT). Apps render at their
+own logical orientation — the e-reader at 480×800 portrait, the dashboard at 800×480
+landscape.
 
 ## Stack
 
-- [ebooklib](https://github.com/aerkalov/ebooklib) — EPUB parsing
-- [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) — HTML text extraction
+- [ebooklib](https://github.com/aerkalov/ebooklib) — EPUB parsing (e-reader)
+- [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) — HTML text extraction (e-reader)
 - [Pillow](https://python-pillow.org/) — image rendering
-- [Flask](https://flask.palletsprojects.com/) — upload web server
+- [Flask](https://flask.palletsprojects.com/) — upload web server (e-reader)
 - [pygame](https://www.pygame.org/) — laptop simulator display and input
 - SQLite3 — built-in, no install needed
 - [Tailwind CSS](https://tailwindcss.com/) — web UI styling via CDN (no install needed)
+```

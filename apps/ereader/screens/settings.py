@@ -16,12 +16,12 @@ from __future__ import annotations
 import socket
 from PIL import Image
 
-from core import fonts
-from core.state_machine import Screen, StateMachine
-from core import server_manager
-from core.paginator import FONT_SIZE_MIN, FONT_SIZE_MAX, DEFAULT_FONT_SIZE
-from hal.input_base import ButtonEvent, Button
-from data.database import get_setting, set_setting
+from display import fonts
+from display.runtime import Screen, StateMachine
+from apps.ereader import server as server_manager
+from apps.ereader.paginator import FONT_SIZE_MIN, FONT_SIZE_MAX, DEFAULT_FONT_SIZE
+from display.hal.input_base import ButtonEvent, Button
+from apps.ereader.database import get_setting, set_setting
 
 MARGIN_X = 16
 ITEM_H   = 80
@@ -208,7 +208,7 @@ class SettingsScreen(Screen):
         elif event.button in (Button.RIGHT, Button.SELECT):
             self._change(+1)
         elif event.button == Button.BACK:
-            from screens.library import LibraryScreen
+            from apps.ereader.screens.library import LibraryScreen
             self.sm.switch(LibraryScreen(self.sm))
 
     def _change(self, direction: int) -> None:

@@ -24,7 +24,7 @@ from ebooklib import epub
 from bs4 import BeautifulSoup, NavigableString, Tag
 from PIL import Image as PILImage
 
-from core.paginator import ImageBlock, MARGIN_X, MARGIN_Y
+from apps.ereader.paginator import ImageBlock, MARGIN_X, MARGIN_Y
 
 
 @dataclass

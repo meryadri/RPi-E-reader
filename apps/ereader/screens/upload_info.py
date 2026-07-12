@@ -2,9 +2,9 @@
 Upload info screen — shows the Flask server URL so the user knows where to upload books.
 """
 from __future__ import annotations
-from core import fonts
-from core.state_machine import Screen, StateMachine
-from hal.input_base import ButtonEvent, Button
+from display import fonts
+from display.runtime import Screen, StateMachine
+from display.hal.input_base import ButtonEvent, Button
 import socket
 
 
@@ -39,5 +39,5 @@ class UploadInfoScreen(Screen):
 
     def handle(self, event: ButtonEvent) -> None:
         if event.pressed and event.button == Button.BACK:
-            from screens.library import LibraryScreen
+            from apps.ereader.screens.library import LibraryScreen
             self.sm.switch(LibraryScreen(self.sm))

@@ -11,17 +11,19 @@ from pathlib import Path
 from flask import Flask, request, render_template_string, send_file, Response
 from werkzeug.serving import make_server
 
-from core.epub_parser import parse_epub, extract_cover_image
-from data.database import (
+from apps.ereader.epub_parser import parse_epub, extract_cover_image
+from apps.ereader.database import (
     init_db, add_book, get_all_books, get_book_by_id,
     update_cover, get_setting, set_setting, delete_book,
 )
 
-from core import fonts as _fonts
+from display import fonts as _fonts
 
 PORT = 3003
-_UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
-_COVERS_DIR = Path(__file__).parent.parent / "data" / "covers"
+# Repo root (apps/ereader/server.py → parents[2]).
+_ROOT = Path(__file__).resolve().parents[2]
+_UPLOAD_DIR = _ROOT / "uploads"
+_COVERS_DIR = _ROOT / "data" / "covers"
 _UPLOAD_DIR.mkdir(exist_ok=True)
 _COVERS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -234,7 +236,7 @@ def index():
                     cover_path = _COVERS_DIR / f"cover_{book_id}.jpg"
                     cover_path.write_bytes(cover_bytes)
                     update_cover(book_id, str(cover_path))
-                from core.page_cache import invalidate
+                from apps.ereader.page_cache import invalidate
                 invalidate(book_id)
                 message = f'Added "{parsed.title}" by {parsed.author}'
             except Exception as e:
@@ -265,7 +267,7 @@ def cover(book_id: int):
 @app.route("/delete/<int:book_id>", methods=["POST"])
 def delete(book_id: int):
     from flask import redirect, url_for
-    from core import page_cache
+    from apps.ereader import page_cache
     book = get_book_by_id(book_id)
     if book:
         # Remove EPUB file

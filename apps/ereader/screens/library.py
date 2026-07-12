@@ -10,10 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 from PIL import Image as PILImage
 
-from core import fonts
-from core.state_machine import Screen, StateMachine
-from hal.input_base import ButtonEvent, Button
-from data.database import get_all_books, Book
+from display import fonts
+from display.runtime import Screen, StateMachine
+from display.hal.input_base import ButtonEvent, Button
+from apps.ereader.database import get_all_books, Book
 
 MARGIN_X  = 16
 HEADER_H  = 56
@@ -186,8 +186,8 @@ class LibraryScreen(Screen):
                 self.sm.mark_dirty()
         elif event.button == Button.SELECT:
             if self._books:
-                from screens.reader import ReaderScreen
+                from apps.ereader.screens.reader import ReaderScreen
                 self.sm.switch(ReaderScreen(self.sm, self._books[self._cursor]))
         elif event.button == Button.MENU:
-            from screens.settings import SettingsScreen
+            from apps.ereader.screens.settings import SettingsScreen
             self.sm.switch(SettingsScreen(self.sm))

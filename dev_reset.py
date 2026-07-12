@@ -46,7 +46,7 @@ def main():
         print(f"Deleted {METRICS}")
 
     # Re-initialise the database schema
-    from data.database import init_db
+    from apps.ereader.database import init_db
     init_db()
     print("Database re-initialised.")
     print("\nDone — clean slate.")

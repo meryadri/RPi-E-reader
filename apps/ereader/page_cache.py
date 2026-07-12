@@ -9,7 +9,7 @@ entry is evicted. This keeps memory bounded on the Pi while still making
 re-opening the same book with the same settings instant.
 """
 from __future__ import annotations
-from core.paginator import Page
+from apps.ereader.paginator import Page
 
 MAX_ENTRIES = 16
 

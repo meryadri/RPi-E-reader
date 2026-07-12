@@ -22,10 +22,10 @@ import tracemalloc
 from pathlib import Path
 import pytest
 
-from core import metrics_cache as _mc
-from core.epub_parser import parse_epub
-from core.paginator import paginate, _width, DEFAULT_FONT_SIZE, FONT_SIZE_MIN, FONT_SIZE_MAX
-from core import fonts
+from apps.ereader import metrics_cache as _mc
+from apps.ereader.epub_parser import parse_epub
+from apps.ereader.paginator import paginate, _width, DEFAULT_FONT_SIZE, FONT_SIZE_MIN, FONT_SIZE_MAX
+from display import fonts
 
 EPUB = Path("tests/leo-tolstoy_war-and-peace.epub")
 RUNS = 5   # number of timed repetitions per cold/warm block
@@ -262,7 +262,7 @@ class TestPaginationTiming:
         Cold path = clear metrics cache + parse + paginate.
         Warm path = in-memory page cache hit only.
         """
-        from core import page_cache
+        from apps.ereader import page_cache
 
         key = (9999, DEFAULT_FONT_SIZE, fonts.COMMIT_MONO)
         page_cache._cache.pop(key, None)

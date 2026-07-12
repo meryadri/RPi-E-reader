@@ -3,13 +3,14 @@ Reader screen — renders book pages and handles navigation.
 Font size and font name are read from the settings database on every open.
 """
 from __future__ import annotations
-from core.state_machine import Screen, StateMachine
-from core.epub_parser import parse_epub
-from core.paginator import paginate, DEFAULT_FONT_SIZE
-from core.renderer import render_page
-from core import fonts, page_cache
-from hal.input_base import ButtonEvent, Button
-from data.database import Book, update_progress, get_setting
+from display.runtime import Screen, StateMachine
+from apps.ereader.epub_parser import parse_epub
+from apps.ereader.paginator import paginate, DEFAULT_FONT_SIZE
+from apps.ereader.renderer import render_page
+from display import fonts
+from apps.ereader import page_cache
+from display.hal.input_base import ButtonEvent, Button
+from apps.ereader.database import Book, update_progress, get_setting
 
 
 class ReaderScreen(Screen):
@@ -66,7 +67,7 @@ class ReaderScreen(Screen):
         elif event.button in (Button.LEFT, Button.UP):
             self._go(-1)
         elif event.button == Button.BACK:
-            from screens.library import LibraryScreen
+            from apps.ereader.screens.library import LibraryScreen
             self.sm.switch(LibraryScreen(self.sm))
 
     def _go(self, delta: int) -> None:

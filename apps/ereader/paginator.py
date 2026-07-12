@@ -21,8 +21,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from PIL import Image as PILImage
-from core import fonts
-from core import metrics_cache
+from display import fonts
+from apps.ereader import metrics_cache
 
 DEFAULT_FONT_SIZE = 16
 FONT_SIZE_MIN = 8

@@ -13,7 +13,8 @@ from __future__ import annotations
 import pickle
 from pathlib import Path
 
-_CACHE_FILE = Path(__file__).parent.parent / "data" / "metrics_cache.pkl"
+# Repo root (apps/ereader/metrics_cache.py → parents[2]).
+_CACHE_FILE = Path(__file__).resolve().parents[2] / "data" / "metrics_cache.pkl"
 
 # (font_size, font_name) → {word: float}
 _store: dict[tuple, dict[str, float]] = {}
