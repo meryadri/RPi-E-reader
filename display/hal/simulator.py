@@ -59,6 +59,25 @@ def _screen_dpi() -> float:
             pass
     return 96.0  # safe fallback for Linux / Windows
 
+# Window events after which macOS/SDL may have discarded the window's contents.
+#
+# SDL documents the backbuffer as undefined once it has been presented, so the
+# last frame is not guaranteed to survive an occlusion, a Space switch, or a
+# minimise/restore.  The app has to re-present it; nothing does that for us.
+#
+# getattr guards: WINDOW* were added in pygame 2, and this module is the only
+# one that would break on an older pygame.
+_REDRAW_EVENTS = frozenset(
+    e for e in (
+        getattr(pygame, "VIDEOEXPOSE", None),
+        getattr(pygame, "WINDOWEXPOSED", None),
+        getattr(pygame, "WINDOWSHOWN", None),
+        getattr(pygame, "WINDOWRESTORED", None),
+        getattr(pygame, "WINDOWMAXIMIZED", None),
+        getattr(pygame, "WINDOWFOCUSGAINED", None),
+    ) if e is not None
+)
+
 # Keyboard → Button mapping
 KEY_MAP = {
     pygame.K_UP:     Button.UP,
@@ -99,9 +118,12 @@ class SimulatorDisplay(DisplayBase):
         self._event_queue: queue.Queue[ButtonEvent] = queue.Queue()
         self._running = True
 
+        # The most recently shown frame, kept so an expose event can repaint the
+        # window.  None means "blank white".
+        self._last_frame: pygame.Surface | None = None
+
         # Show a blank white screen on start
-        self._screen.fill((255, 255, 255))
-        pygame.display.flip()
+        self._present()
 
     # ------------------------------------------------------------------
     # DisplayBase interface
@@ -115,15 +137,28 @@ class SimulatorDisplay(DisplayBase):
         if (self._win_w, self._win_h) != (self.width, self.height):
             image = image.resize((self._win_w, self._win_h), Image.LANCZOS)
         raw = image.tobytes()
-        surf = pygame.image.fromstring(raw, (self._win_w, self._win_h), "RGB")
-        self._screen.blit(surf, (0, 0))
-        pygame.display.flip()
+        self._last_frame = pygame.image.fromstring(
+            raw, (self._win_w, self._win_h), "RGB"
+        )
+        self._present()
         self._pump_events()
 
     def clear(self) -> None:
-        self._screen.fill((255, 255, 255))
-        pygame.display.flip()
+        self._last_frame = None
+        self._present()
         self._pump_events()
+
+    def _present(self) -> None:
+        """Blit the last frame to the window and flip.
+
+        Deliberately does NOT pump events: it is called *from* _pump_events()
+        to service an expose, and pumping there would recurse.
+        """
+        if self._last_frame is None:
+            self._screen.fill((255, 255, 255))
+        else:
+            self._screen.blit(self._last_frame, (0, 0))
+        pygame.display.flip()
 
     @property
     def window_size(self) -> tuple[int, int]:
@@ -161,3 +196,9 @@ class SimulatorDisplay(DisplayBase):
                 btn = KEY_MAP.get(event.key)
                 if btn:
                     self._event_queue.put(ButtonEvent(button=btn, pressed=False))
+            elif event.type in _REDRAW_EVENTS:
+                # Repaint from our own copy rather than marking the screen
+                # dirty: the app decides when content changes, and a dashboard
+                # that only redraws once a minute would otherwise show a black
+                # window until the next tick.
+                self._present()

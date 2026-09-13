@@ -7,18 +7,23 @@ Layout
 | 14:32                                   [sun]  24°C         |
 | Sunday 12 July                                 Clear        |
 |-------------------------------------------------------------|
-| ALL-DAY                     |  TRAINING                     |
-| • Dentist                   |  Today: Tempo run             |
-| 2/5 Berlin trip             |  8 km @ 4:45/km               |
-| • Anna's birthday           |  Wk 3 / 12                    |
-|                             |  32 km this week              |
+| .-------------------------.  |  TRAINING                    |
+| | Dentist            2/5  |  |  Today: Tempo run            |
+| | Cleaning + check-up     |  |  8 km @ 4:45/km              |
+| '-------------------------'  |  Wk 3 / 12                   |
+| .-------------------------.  |  32 km this week             |
+| | Anna's birthday         |  |                              |
+| '-------------------------'  |                              |
 +-------------------------------------------------------------+
+
+Each event is a rounded card: the title on top (wrapping to two lines) and the
+calendar description as a smaller subtitle underneath.  No header, no bullets —
+the cards read as a continuation of the date above them.
 
 The clock redraws itself once a minute; the calendar column redraws only when
 the event list actually changes.  Both use a partial (flicker-free) refresh.
 """
 from __future__ import annotations
-import math
 
 from PIL import Image
 
@@ -26,13 +31,30 @@ from display import fonts
 from display.runtime import Screen
 from apps.dashboard import data
 from integrations import google_calendar as gcal
+from integrations import open_meteo
+from apps.dashboard.screens import weather_icons
 
 MARGIN = 28
-TOP_H = 150          # height of the top clock/weather band
+TOP_H = 124          # height of the top clock/weather band
 
-ROW_H = 42
-ROW_Y0 = TOP_H + 70  # first event row
-MARKER_W = 38        # left gutter: bullet, or "2/5" for a multi-day event
+# Event cards
+CAL_Y0 = TOP_H + 18  # top of the first card
+BOX_PAD_X = 12
+BOX_PAD_Y = 9
+BOX_GAP = 9
+BOX_RADIUS = 10
+TITLE_LH = 23        # line height for the title font
+DESC_LH = 19         # line height for the description font
+MAX_TITLE_LINES = 2
+MAX_DESC_LINES = 2
+MARKER_GAP = 10      # space between the title and the "2/5" span marker
+NOTE_H = 22          # reserved footer for the staleness note
+MORE_H = 24          # reserved footer for "+N more"
+
+# Weather icon, sized to the space left of the temperature in the top band.
+WX_ICON_R = 28       # radius; the glyph occupies roughly 2r
+WX_ICON_CY = 56      # vertical centre, balanced against temp + condition lines
+WX_ICON_GAP = 24     # clear space between the icon and the temperature
 
 
 class DashboardScreen(Screen):
@@ -40,6 +62,7 @@ class DashboardScreen(Screen):
         super().__init__(sm)
         self._last_minute: str | None = None
         self._cal_version: int | None = None
+        self._wx_version: int | None = None
 
     def on_enter(self) -> None:
         self.sm.mark_dirty("full")
@@ -50,7 +73,8 @@ class DashboardScreen(Screen):
 
     def poll(self) -> None:
         """Redraw when the clock ticks or the calendar changes — nothing else."""
-        if self._last_minute is None or self._cal_version is None:
+        if (self._last_minute is None or self._cal_version is None
+                or self._wx_version is None):
             # First frame: on_enter already queued a "full" refresh to clear the
             # panel.  Marking dirty here would downgrade it to "partial" and
             # leave whatever was on the e-ink before showing through.
@@ -65,6 +89,9 @@ class DashboardScreen(Screen):
             self.sm.mark_dirty("partial")
             return
         if data.get_calendar().version != self._cal_version:
+            self.sm.mark_dirty("partial")
+            return
+        if data.get_weather_snapshot().version != self._wx_version:
             self.sm.mark_dirty("partial")
 
     # ------------------------------------------------------------------
@@ -86,7 +113,13 @@ class DashboardScreen(Screen):
         # version would mark the screen dirty again for content already shown.
         self._cal_version = cal.version
 
-        self._draw_top(draw, now, data.get_weather())
+        # Same rule as the calendar: read the snapshot once and record the
+        # version actually drawn, so a publish between poll() and render()
+        # cannot cause a redundant redraw.
+        wx = data.get_weather_snapshot()
+        self._wx_version = wx.version
+
+        self._draw_top(draw, now, wx)
         # Divider under the top band
         draw.line([(MARGIN, TOP_H), (self.WIDTH - MARGIN, TOP_H)], fill="black", width=2)
         # Vertical divider between the two bottom columns
@@ -98,95 +131,126 @@ class DashboardScreen(Screen):
 
         return img
 
-    def _draw_top(self, draw, now, weather) -> None:
-        f_clock = fonts.load(96, bold=True)
-        f_date = fonts.load(26)
+    def _draw_top(self, draw, now, wx) -> None:
+        f_clock = fonts.load(68, bold=True)
+        f_date = fonts.load(23)
 
-        draw.text((MARGIN, 18), now.strftime("%H:%M"), font=f_clock, fill="black")
-        date_str = now.strftime("%A %-d %B") if hasattr(now, "strftime") else ""
-        draw.text((MARGIN + 4, 122), date_str, font=f_date, fill="black")
+        draw.text((MARGIN, 12), now.strftime("%H:%M"), font=f_clock, fill="black")
+        # "%-d" (no zero padding) is a glibc/BSD extension — fine on both macOS
+        # and Raspberry Pi OS, but it is not portable to Windows.
+        date_str = now.strftime("%A, %B %-d") if hasattr(now, "strftime") else ""
+        draw.text((MARGIN + 3, 90), date_str, font=f_date, fill="black")
 
         # Weather block, right-aligned
-        f_temp = fonts.load(52, bold=True)
-        f_cond = fonts.load(24)
-        temp_str = f"{weather['temp_c']}°C"
-        cond_str = weather["condition"]
+        f_temp = fonts.load(42, bold=True)
+        f_cond = fonts.load(21)
+        w = wx.weather
+
+        if w.get("temp_c") is None:
+            temp_str = "--°C / --°F"
+            cond_str = ("Weather loading..." if wx.status == open_meteo.LOADING
+                        else "Weather unavailable")
+        else:
+            temp_str = f"{w['temp_c']}°C / {w['temp_f']}°F"
+            cond_str = f"{w['description']} · {w['wind']} {w['wind_unit']}"
 
         temp_w = _text_w(draw, temp_str, f_temp)
         temp_x = self.WIDTH - MARGIN - temp_w
-        draw.text((temp_x, 40), temp_str, font=f_temp, fill="black")
+        draw.text((temp_x, 30), temp_str, font=f_temp, fill="black")
 
+        # The condition line shares a row with the date, so clamp it to the
+        # space actually left rather than letting a long one overlap.
+        cond_limit = self.WIDTH - MARGIN - (MARGIN + _text_w(draw, date_str, f_date) + 24)
+        cond_str = _ellipsize(draw, cond_str, f_cond, cond_limit)
         cond_w = _text_w(draw, cond_str, f_cond)
-        draw.text((self.WIDTH - MARGIN - cond_w, 100), cond_str, font=f_cond, fill="black")
+        draw.text((self.WIDTH - MARGIN - cond_w, 84), cond_str, font=f_cond, fill="black")
 
-        # Simple drawn sun icon to the left of the temperature (glyph-independent)
-        self._draw_sun(draw, cx=temp_x - 52, cy=66, r=22)
+        weather_icons.draw_icon(
+            draw, w.get("icon"),
+            cx=temp_x - WX_ICON_GAP - WX_ICON_R, cy=WX_ICON_CY, r=WX_ICON_R,
+        )
 
     def _draw_calendar(self, draw, cal, x0, x1) -> None:
-        f_head = fonts.load(22, bold=True)
-        f_item = fonts.load(22)
-        f_small = fonts.load(16)
-        f_note = fonts.load(18)
+        f_title = fonts.load(18)
+        f_desc = fonts.load(15)
+        f_small = fonts.load(14)
 
-        y = TOP_H + 26
-        draw.text((x0, y), "ALL-DAY", font=f_head, fill="black")
+        bottom = self.HEIGHT - MARGIN
 
-        # Freshness marker, right-aligned on the header line.  Staleness is
+        # Freshness marker, pinned to the bottom of the column.  Staleness is
         # derived from the snapshot's age, so it also catches a refresh thread
-        # that died or hung rather than only a clean failure.
+        # that died or hung rather than only a clean failure.  Reserving the
+        # space up front means a full column can never paint over it.
+        note = ""
         if cal.status == gcal.OK and cal.is_stale():
             note = f"as of {cal.fetched_at_label()}" if cal.fetched_at else "stale"
-            draw.text((x1 - _text_w(draw, note, f_small), y + 6),
-                      note, font=f_small, fill="black")
         elif cal.partial:
             note = "partial"
-            draw.text((x1 - _text_w(draw, note, f_small), y + 6),
+        if note:
+            bottom -= NOTE_H
+            draw.text((x1 - _text_w(draw, note, f_small), bottom + 4),
                       note, font=f_small, fill="black")
 
-        y = ROW_Y0
+        y = CAL_Y0
 
         # Guard against a snapshot for a different day ever reaching the screen:
         # yesterday's all-day events shown as today's is worse than showing none.
         events = cal.events if cal.day == gcal.today() else ()
 
         if not events:
-            draw.text((x0, y), _empty_text(cal), font=f_item, fill="black")
+            draw.text((x0, y), _empty_text(cal), font=f_title, fill="black")
             if cal.status == gcal.AUTH_REQUIRED:
-                draw.text((x0, y + 30),
+                draw.text((x0, y + 28),
                           "python -m integrations.google_calendar",
                           font=f_small, fill="black")
             return
 
-        # Derive the cap from the geometry so it survives a layout edit.
-        y_limit = self.HEIGHT - MARGIN - ROW_H
-        max_rows = max(1, (y_limit - ROW_Y0) // ROW_H + 1)
-
-        shown = events
+        inner_w = (x1 - x0) - 2 * BOX_PAD_X
         overflow = 0
-        if len(events) > max_rows:
-            shown = events[: max_rows - 1]
-            overflow = len(events) - len(shown)
 
-        title_x = x0 + MARKER_W
-        title_w = x1 - title_x
+        for i, ev in enumerate(events):
+            marker = ""
+            title_w = inner_w
+            if ev.get("days_total", 1) > 1:
+                marker = f"{ev.get('day_index', 0) + 1}/{ev['days_total']}"
+                title_w -= _text_w(draw, marker, f_small) + MARKER_GAP
 
-        for ev in shown:
-            if ev["days_total"] > 1:
-                marker = f"{ev['day_index'] + 1}/{ev['days_total']}"
-                draw.text((x0, y + 5), marker, font=f_small, fill="black")
-            else:
-                # Drawn rather than a "•" glyph: CommitMono renders U+2022 as a
-                # low period, and a font without it would show a tofu box.
-                cx, cy, r = x0 + 7, y + 14, 3
-                draw.ellipse([(cx - r, cy - r), (cx + r, cy + r)], fill="black")
+            title_lines = _wrap(draw, ev.get("title") or "(no title)",
+                                f_title, title_w, MAX_TITLE_LINES)
+            desc_lines = _wrap(draw, ev.get("description", ""),
+                               f_desc, inner_w, MAX_DESC_LINES)
 
-            title = ev.get("title") or "(no title)"
-            draw.text((title_x, y), _ellipsize(draw, title, f_item, title_w),
-                      font=f_item, fill="black")
-            y += ROW_H
+            h = (2 * BOX_PAD_Y
+                 + len(title_lines) * TITLE_LH
+                 + len(desc_lines) * DESC_LH)
 
-        if overflow:
-            draw.text((title_x, y + 2), f"+{overflow} more", font=f_note, fill="black")
+            # Anything after this one needs a "+N more" line, so reserve it
+            # before deciding whether this card fits.
+            reserve = MORE_H if i < len(events) - 1 else 0
+            if y + h + reserve > bottom:
+                overflow = len(events) - i
+                break
+
+            draw.rounded_rectangle([(x0, y), (x1, y + h)],
+                                   radius=BOX_RADIUS, outline="black", width=1)
+
+            ty = y + BOX_PAD_Y
+            for line in title_lines:
+                draw.text((x0 + BOX_PAD_X, ty), line, font=f_title, fill="black")
+                ty += TITLE_LH
+            # The span marker sits on the first title line, right-aligned.
+            if marker:
+                draw.text((x1 - BOX_PAD_X - _text_w(draw, marker, f_small),
+                           y + BOX_PAD_Y + 4), marker, font=f_small, fill="black")
+            for line in desc_lines:
+                draw.text((x0 + BOX_PAD_X, ty), line, font=f_desc, fill="black")
+                ty += DESC_LH
+
+            y += h + BOX_GAP
+
+        if overflow and y + MORE_H <= bottom:
+            draw.text((x0 + BOX_PAD_X, y + 2), f"+{overflow} more",
+                      font=f_desc, fill="black")
 
     def _draw_training(self, draw, tr, x0) -> None:
         f_head = fonts.load(22, bold=True)
@@ -205,17 +269,6 @@ class DashboardScreen(Screen):
         y += 30
         draw.text((x0, y), tr["volume"], font=f_meta, fill="black")
 
-    @staticmethod
-    def _draw_sun(draw, cx, cy, r) -> None:
-        draw.ellipse([(cx - r, cy - r), (cx + r, cy + r)], outline="black", width=3)
-        for i in range(8):
-            a = math.pi * i / 4
-            x1 = cx + math.cos(a) * (r + 5)
-            y1 = cy + math.sin(a) * (r + 5)
-            x2 = cx + math.cos(a) * (r + 13)
-            y2 = cy + math.sin(a) * (r + 13)
-            draw.line([(x1, y1), (x2, y2)], fill="black", width=3)
-
 
 def _empty_text(cal) -> str:
     if cal.status == gcal.AUTH_REQUIRED:
@@ -232,15 +285,53 @@ def _text_w(draw, text, font) -> int:
     return bbox[2] - bbox[0]
 
 
-def _ellipsize(draw, text, font, max_w) -> str:
+def _ellipsize(draw, text, font, max_w, force: bool = False) -> str:
     """Trim `text` so it fits `max_w`, appending an ellipsis.
+
+    `force` appends the ellipsis even when the text already fits — used by
+    _wrap() to mark a line that had more text after it.
 
     Uses "..." rather than the single-character U+2026: if the bundled font
     lacks that glyph you get a visible tofu box instead.
     """
-    if _text_w(draw, text, font) <= max_w:
+    if not force and _text_w(draw, text, font) <= max_w:
         return text
     ell = "..."
     while text and _text_w(draw, text + ell, font) > max_w:
         text = text[:-1]
     return (text.rstrip() + ell) if text else ell
+
+
+def _wrap(draw, text, font, max_w, max_lines) -> list[str]:
+    """Word-wrap `text` into at most `max_lines` lines that each fit `max_w`.
+
+    Anything that does not fit is dropped and the last line is ellipsized, so a
+    long title degrades to "two lines then ..." instead of running into the
+    training column.
+    """
+    words = (text or "").split()
+    if not words or max_lines <= 0 or max_w <= 0:
+        return []
+
+    lines: list[str] = []
+    current = ""
+    i = 0
+    while i < len(words) and len(lines) < max_lines:
+        trial = f"{current} {words[i]}" if current else words[i]
+        if current and _text_w(draw, trial, font) > max_w:
+            lines.append(current)
+            current = ""
+            continue          # retry this word on the next line
+        current = trial
+        i += 1
+
+    if current and len(lines) < max_lines:
+        lines.append(current)
+        current = ""
+
+    # A single word wider than the column never wraps above, so every line is
+    # ellipsized defensively rather than trusting the measurements.
+    lines = [_ellipsize(draw, line, font, max_w) for line in lines]
+    if (i < len(words) or current) and lines:
+        lines[-1] = _ellipsize(draw, lines[-1], font, max_w, force=True)
+    return lines

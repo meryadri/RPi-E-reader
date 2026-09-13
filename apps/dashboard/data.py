@@ -1,15 +1,16 @@
 """
 Dashboard data provider.
 
-Calendar data is live (Google Calendar, via integrations/google_calendar).
-Weather and training are still hardcoded stubs — this module remains the single
-seam to replace them with real sources; the screen only ever calls these
-functions, so the UI does not change when the data becomes live.
+Calendar (Google Calendar) and weather (Open-Meteo) are live.  Training is still
+a hardcoded stub — this module remains the single seam to replace it with a real
+source; the screen only ever calls these functions, so the UI does not change
+when the data becomes live.
 """
 from __future__ import annotations
 from datetime import datetime
 
 from integrations import google_calendar as gcal
+from integrations import open_meteo
 
 
 def get_now() -> datetime:
@@ -17,14 +18,27 @@ def get_now() -> datetime:
     return datetime.now()
 
 
+def get_weather_snapshot() -> open_meteo.Snapshot:
+    """Current conditions plus their freshness/error state.
+
+    Never blocks and never raises — called from render(), and
+    display/runtime.py:run() has no try/except above it.
+    """
+    try:
+        return open_meteo.get_snapshot()
+    except Exception:
+        return open_meteo.Snapshot(status=open_meteo.ERROR, error="weather unavailable")
+
+
 def get_weather() -> dict:
-    """Current conditions.  Replace with a weather API call."""
-    return {"temp_c": 24, "condition": "Clear", "icon": "☀"}
+    """Current conditions, as the screen renders them."""
+    return get_weather_snapshot().weather
 
 
 def start_sources() -> None:
     """Start background data refresh.  Wired to App.setup; must not block."""
     gcal.start()
+    open_meteo.start()
 
 
 def get_calendar() -> gcal.Snapshot:

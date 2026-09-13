@@ -14,6 +14,7 @@ COVERS   = ROOT / "data" / "covers"
 UPLOADS  = ROOT / "uploads"
 METRICS  = ROOT / "data" / "metrics_cache.pkl"
 CALENDAR = ROOT / "data" / "calendar_cache.json"
+WEATHER  = ROOT / "data" / "weather_cache.json"
 
 def confirm(prompt: str) -> bool:
     return input(f"{prompt} [y/N] ").strip().lower() == "y"
@@ -25,6 +26,7 @@ def main():
     print(f"  {UPLOADS}/ (all uploaded EPUBs)")
     print(f"  {METRICS} (word-width cache)")
     print(f"  {CALENDAR} (cached calendar events)")
+    print(f"  {WEATHER} (cached weather reading)")
     print()
     print("Your Google credentials are NOT touched.")
     print()
@@ -52,6 +54,10 @@ def main():
     if CALENDAR.exists():
         CALENDAR.unlink()
         print(f"Deleted {CALENDAR}")
+
+    if WEATHER.exists():
+        WEATHER.unlink()
+        print(f"Deleted {WEATHER}")
 
     # Re-initialise the database schema
     from apps.ereader.database import init_db

@@ -4,8 +4,8 @@ Dashboard app definition.
 Landscape, no buttons.  Shows clock/date, weather, today's all-day calendar
 events and the running training plan.
 
-Calendar data is live — see integrations/google_calendar/README.md for setup.
-Weather and training still come from the hardcoded stub in data.py.
+Calendar (see integrations/google_calendar/README.md for setup) and weather
+(Open-Meteo, no setup needed) are live.  Training is still stubbed in data.py.
 """
 from display.runtime import App, LANDSCAPE
 

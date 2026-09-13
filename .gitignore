@@ -2,6 +2,7 @@
 /data/ereader.db
 /data/metrics_cache.pkl
 /data/calendar_cache.json
+/data/weather_cache.json
 /data/covers
 **/__pycache__
 *.pyc

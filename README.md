@@ -58,7 +58,8 @@ app, so the same core renders portrait or landscape without changes to screen co
 │       ├── data.py               # Data seam: live calendar, stubbed weather/training
 │       └── screens/dashboard.py  # Clock, weather, calendar, training layout
 ├── integrations/                 # External data sources (app-agnostic)
-│   └── google_calendar/          # OAuth + Calendar API — see its own README
+│   ├── google_calendar/          # Calendar API — see its own README
+│   └── open_meteo/               # Weather — no API key needed
 ├── data/                         # ereader.db, covers/, caches (auto-created)
 ├── assets/fonts/                 # CommitMono font files
 ├── default_books/                # Seed EPUBs added on first run
@@ -110,8 +111,15 @@ credential that expires. It's documented separately in
 Until that's done the panel reads "Calendar not connected" — everything else still
 works.
 
-**Weather and training are still hardcoded** in `data.py`, waiting for the same
-treatment; the screen layout won't need to change when they go live.
+**Weather is live** via [Open-Meteo](https://open-meteo.com) — temperature in °C
+and °F, a condition icon, wind speed and a short description. It needs **no API key
+and no setup at all**; see
+[`integrations/open_meteo/README.md`](integrations/open_meteo/README.md) to change
+the location. Icons come from the bundled
+[Weather Icons](https://github.com/erikflowers/weather-icons) font (SIL OFL 1.1).
+
+**Training is still hardcoded** in `data.py`, waiting for the same treatment; the
+screen layout won't need to change when it goes live.
 
 The panel is only written to when displayed content actually changes: the clock on
 each minute tick, and the calendar column only when the event list differs from what
@@ -192,6 +200,8 @@ landscape.
 - [Flask](https://flask.palletsprojects.com/) — upload web server (e-reader)
 - [pygame](https://www.pygame.org/) — laptop simulator display and input
 - [google-api-python-client](https://github.com/googleapis/google-api-python-client) — Google Calendar (dashboard)
+- [Open-Meteo](https://open-meteo.com) — weather (dashboard); no key, stdlib `urllib` only
+- [Weather Icons](https://github.com/erikflowers/weather-icons) — bundled icon font (SIL OFL 1.1)
 - SQLite3 — built-in, no install needed
 - [Tailwind CSS](https://tailwindcss.com/) — web UI styling via CDN (no install needed)
 ```

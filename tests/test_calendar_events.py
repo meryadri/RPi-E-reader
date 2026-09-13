@@ -140,9 +140,36 @@ def test_missing_summary_gets_placeholder():
 def test_normalize_always_returns_complete_dict():
     """render() has no try/except above it — a missing key is a dead panel."""
     n = ev.normalize(all_day("2026-09-12", "2026-09-13"), "cal", "Cal", TODAY)
-    for key in ("id", "title", "all_day", "start_date", "end_date",
+    for key in ("id", "title", "description", "all_day", "start_date", "end_date",
                 "days_total", "day_index", "calendar_id", "calendar_name"):
         assert n[key] is not None
+
+
+def test_missing_description_is_empty_string_not_none():
+    n = ev.normalize(all_day("2026-09-12", "2026-09-13"), "cal", "Cal", TODAY)
+    assert n["description"] == ""
+
+
+def test_description_html_is_flattened_to_one_line():
+    e = all_day("2026-09-12", "2026-09-13")
+    e["description"] = "<b>Bring</b> the docs<br>Room 4.2 &amp; the annex"
+    assert ev.normalize(e, "cal", "Cal", TODAY)["description"] == (
+        "Bring the docs Room 4.2 & the annex"
+    )
+
+
+def test_description_newlines_collapse_to_spaces():
+    assert ev.clean_description("line one\n\n  line two\t") == "line one line two"
+
+
+def test_long_description_is_capped():
+    out = ev.clean_description("word " * 200)
+    assert len(out) <= ev.MAX_DESCRIPTION_CHARS + 3
+    assert out.endswith("...")
+
+
+def test_clean_description_handles_none():
+    assert ev.clean_description(None) == ""
 
 
 # --- ordering and dedupe ---------------------------------------------------

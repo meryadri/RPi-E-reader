@@ -8,6 +8,8 @@ live, so it is the part that has to be cheap to test.
 """
 from __future__ import annotations
 
+import html
+import re
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -19,6 +21,35 @@ from zoneinfo import ZoneInfo
 NOISE_EVENT_TYPES = frozenset({"workingLocation"})
 
 NO_TITLE = "(no title)"
+
+# The dashboard only has room for a two-line subtitle; the cap keeps a pasted
+# meeting agenda out of the cached JSON and out of the snapshot equality check.
+MAX_DESCRIPTION_CHARS = 200
+
+# Descriptions written in the Google Calendar web UI are HTML, not plain text.
+_BREAK_RE = re.compile(r"(?i)<(?:br|/p|/div|/li|/tr)\s*/?>")
+_TAG_RE = re.compile(r"<[^>]+>")
+_WS_RE = re.compile(r"\s+")
+
+
+def clean_description(raw: str | None) -> str:
+    """Flatten a calendar description into one line of plain text.
+
+    Line breaks become spaces rather than being preserved: the card wraps the
+    text itself, and an event's own newlines would otherwise waste both of the
+    two available subtitle lines on a single short sentence.
+    """
+    if not raw:
+        return ""
+    text = _BREAK_RE.sub(" ", raw)
+    text = _TAG_RE.sub("", text)
+    # After tag removal, so a literal "&lt;b&gt;" in the text is not then
+    # treated as markup.
+    text = html.unescape(text)
+    text = _WS_RE.sub(" ", text).strip()
+    if len(text) > MAX_DESCRIPTION_CHARS:
+        text = text[:MAX_DESCRIPTION_CHARS].rstrip() + "..."
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -171,11 +202,13 @@ def normalize(event: dict, calendar_id: str, calendar_name: str, day: date) -> d
         day_index = (day - start).days
 
     title = (event.get("summary") or "").strip() or NO_TITLE
+    description = clean_description(event.get("description"))
 
     return {
         "id": f"{calendar_id}:{event.get('id', '')}",
         "ical_uid": event.get("iCalUID", ""),
         "title": title,
+        "description": description,
         "all_day": True,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),     # exclusive, verbatim from Google
