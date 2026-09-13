@@ -19,6 +19,7 @@ import sys
 from display.runtime import run
 
 # E-ink is slow — no point running faster than the panel refreshes.
+# An app can override this with App.fps (the dashboard has no buttons to poll).
 _FPS = {"sim": 30, "rpi": 10, "rpi_ssh": 10}
 
 
@@ -46,7 +47,7 @@ def main() -> None:
     display = _make_display(args.backend, width, height)
 
     try:
-        run(app, display, target_fps=_FPS[args.backend])
+        run(app, display, target_fps=app.fps or _FPS[args.backend])
     finally:
         cleanup = getattr(display, "cleanup", None)
         if callable(cleanup):

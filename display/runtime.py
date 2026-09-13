@@ -110,6 +110,7 @@ class App:
     build_root: Callable[[StateMachine], Screen]       # builds the first screen
     uses_input: bool = True                            # False = no buttons (dashboard)
     setup: Callable[[], None] | None = None            # one-time init (e.g. init_db)
+    fps: int | None = None                             # event-loop rate; None = backend default
 
 
 def run(app: App, display: DisplayBase, target_fps: int = 30) -> None:

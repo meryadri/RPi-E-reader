@@ -5,8 +5,9 @@ entirely on your laptop before touching hardware. A small reusable **display cor
 hosts multiple **apps**:
 
 - **E-reader** — portrait, button-driven EPUB reader with a wireless upload site.
-- **Dashboard** — landscape, no buttons; shows the time, weather, calendar events,
-  and a running training plan. (Data is currently a hardcoded stub — see below.)
+- **Dashboard** — landscape, no buttons; shows the time, weather, today's all-day
+  Google Calendar events, and a running training plan. (Calendar data is live;
+  weather and training are still stubs — see below.)
 
 ## How it works
 
@@ -54,9 +55,11 @@ app, so the same core renders portrait or landscape without changes to screen co
 │   │   └── screens/              # library, reader, settings, upload_info
 │   └── dashboard/                # Landscape info dashboard (no buttons)
 │       ├── app.py                # APP = App(... LANDSCAPE, uses_input=False ...)
-│       ├── data.py               # HARDCODED data stub — swap for real APIs later
+│       ├── data.py               # Data seam: live calendar, stubbed weather/training
 │       └── screens/dashboard.py  # Clock, weather, calendar, training layout
-├── data/                         # ereader.db, covers/, metrics_cache.pkl (auto-created)
+├── integrations/                 # External data sources (app-agnostic)
+│   └── google_calendar/          # OAuth + Calendar API — see its own README
+├── data/                         # ereader.db, covers/, caches (auto-created)
 ├── assets/fonts/                 # CommitMono font files
 ├── default_books/                # Seed EPUBs added on first run
 └── uploads/                      # Uploaded EPUB files
@@ -96,10 +99,22 @@ Button-driven. To upload books, press `M` to open Settings, toggle
 | `M` | Menu |
 
 ### Dashboard
-No input — it just displays. The clock refreshes once a minute. All content comes
-from `apps/dashboard/data.py`, which currently returns **hardcoded** values. That
-module is the single seam to replace later with real sources (a weather API, Google
-Calendar, a training-plan feed or upload site); the screen layout won't need to change.
+No input — it just displays. All content comes from `apps/dashboard/data.py`, the
+single seam between the screen and its data sources.
+
+**Calendar is live.** It shows today's all-day events across all your subscribed
+Google calendars, fetched on a background thread. One-time setup (a Google Cloud
+OAuth client and a browser consent on your laptop) is documented separately in
+**[`integrations/google_calendar/README.md`](integrations/google_calendar/README.md)**.
+Until that's done the panel reads "Calendar not connected" — everything else still
+works.
+
+**Weather and training are still hardcoded** in `data.py`, waiting for the same
+treatment; the screen layout won't need to change when they go live.
+
+The panel is only written to when displayed content actually changes: the clock on
+each minute tick, and the calendar column only when the event list differs from what
+is already on screen. Both use a flicker-free partial refresh.
 
 ## Running on the Raspberry Pi
 
@@ -175,6 +190,7 @@ landscape.
 - [Pillow](https://python-pillow.org/) — image rendering
 - [Flask](https://flask.palletsprojects.com/) — upload web server (e-reader)
 - [pygame](https://www.pygame.org/) — laptop simulator display and input
+- [google-api-python-client](https://github.com/googleapis/google-api-python-client) — Google Calendar (dashboard)
 - SQLite3 — built-in, no install needed
 - [Tailwind CSS](https://tailwindcss.com/) — web UI styling via CDN (no install needed)
 ```

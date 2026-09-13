@@ -13,6 +13,7 @@ DB       = ROOT / "data" / "ereader.db"
 COVERS   = ROOT / "data" / "covers"
 UPLOADS  = ROOT / "uploads"
 METRICS  = ROOT / "data" / "metrics_cache.pkl"
+CALENDAR = ROOT / "data" / "calendar_cache.json"
 
 def confirm(prompt: str) -> bool:
     return input(f"{prompt} [y/N] ").strip().lower() == "y"
@@ -23,6 +24,9 @@ def main():
     print(f"  {COVERS}/ (all cover images)")
     print(f"  {UPLOADS}/ (all uploaded EPUBs)")
     print(f"  {METRICS} (word-width cache)")
+    print(f"  {CALENDAR} (cached calendar events)")
+    print()
+    print("Your Google token is NOT touched — re-authorising needs a browser.")
     print()
     if not confirm("Continue?"):
         print("Aborted.")
@@ -44,6 +48,10 @@ def main():
     if METRICS.exists():
         METRICS.unlink()
         print(f"Deleted {METRICS}")
+
+    if CALENDAR.exists():
+        CALENDAR.unlink()
+        print(f"Deleted {CALENDAR}")
 
     # Re-initialise the database schema
     from apps.ereader.database import init_db

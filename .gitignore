@@ -1,8 +1,19 @@
 /uploads
 /data/ereader.db
 /data/metrics_cache.pkl
+/data/calendar_cache.json
 /data/covers
 **/__pycache__
 *.pyc
 /HARDWARE.md
 /why-we-sleep
+
+# Google Calendar credentials.  Ignore the directory's *contents* rather than the
+# directory itself, so its own self-protecting .gitignore still gets committed —
+# git will not descend into a fully ignored directory to find it.
+/integrations/google_calendar/secrets/*
+!/integrations/google_calendar/secrets/.gitignore
+# Belt and braces, in case the secrets dir is ever relocated.
+token.json
+credentials.json
+client_secret*.json
