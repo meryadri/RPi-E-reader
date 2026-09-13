@@ -15,6 +15,13 @@ _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parents[1]
 
 SECRETS_DIR = Path(os.environ.get("GCAL_SECRETS_DIR", _HERE / "secrets"))
+
+# Service account key (the default auth mode — no consent screen, nothing that
+# expires).  Share each calendar with the key's client_email address.
+SERVICE_ACCOUNT_FILE = SECRETS_DIR / "service_account.json"
+
+# OAuth installed-app flow (fallback).  Only usable if you can publish an OAuth
+# consent screen, which requires a Search-Console-verified domain.
 CREDENTIALS_FILE = SECRETS_DIR / "credentials.json"
 TOKEN_FILE = SECRETS_DIR / "token.json"
 
@@ -71,6 +78,34 @@ INCLUDE_BIRTHDAYS = os.environ.get("GCAL_BIRTHDAYS", "1") != "0"
 
 # Events you have explicitly declined are hidden by default.
 HIDE_DECLINED = os.environ.get("GCAL_HIDE_DECLINED", "1") != "0"
+
+# Calendars to pull, as explicit ids, most important first.
+#
+# A service account's own calendarList is empty — sharing a calendar with it
+# grants read access but does not add it to that list, and registering it would
+# need a write scope we deliberately do not request.  So for service accounts,
+# explicit ids are the only way in.  `--add-calendar` appends to CALENDARS_FILE.
+CALENDARS_FILE = SECRETS_DIR / "calendars.json"
+
+
+def calendar_ids() -> list[str]:
+    """Configured calendar ids, in priority order: env var first, then file.
+
+    Read on each refresh rather than cached at import, so editing the file (or
+    running --add-calendar) takes effect without restarting the app.
+    """
+    ids: list[str] = [
+        s.strip() for s in os.environ.get("GCAL_CALENDAR_IDS", "").split(",") if s.strip()
+    ]
+    try:
+        import json
+        with open(CALENDARS_FILE) as f:
+            for cal_id in json.load(f):
+                if isinstance(cal_id, str) and cal_id.strip() not in ids:
+                    ids.append(cal_id.strip())
+    except Exception:
+        pass
+    return ids
 
 # Calendars to leave out entirely — by id, or by a case-insensitive substring of
 # the calendar's name.  Useful when a holiday calendar floods the panel.

@@ -26,7 +26,7 @@ def main():
     print(f"  {METRICS} (word-width cache)")
     print(f"  {CALENDAR} (cached calendar events)")
     print()
-    print("Your Google token is NOT touched — re-authorising needs a browser.")
+    print("Your Google credentials are NOT touched.")
     print()
     if not confirm("Continue?"):
         print("Aborted.")

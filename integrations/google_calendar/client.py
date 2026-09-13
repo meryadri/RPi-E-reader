@@ -38,20 +38,67 @@ def build_service(creds):
     )
 
 
-def list_calendars(service) -> list[dict]:
-    """Every subscribed calendar, primary first.
+def _excluded(cal_id: str, name: str) -> bool:
+    if cal_id in config.EXCLUDE_CALENDAR_IDS:
+        return True
+    return any(sub in name.lower() for sub in config.EXCLUDE_CALENDAR_NAME_SUBSTRINGS)
 
-    Primary-first ordering matters: it decides which copy of a duplicated event
-    survives dedupe.
+
+def get_calendar(service, calendar_id: str) -> dict | None:
+    """Resolve one calendar id to a {id, name, primary} record.
+
+    Uses calendars().get() rather than calendarList — a service account has no
+    calendar list of its own, but can read any calendar shared with it directly
+    by id.  Returns None if the calendar is not readable.
+    """
+    try:
+        meta = service.calendars().get(calendarId=calendar_id).execute()
+    except Exception:
+        return None
+    return {
+        "id": calendar_id,
+        "name": meta.get("summary") or calendar_id,
+        "primary": False,
+    }
+
+
+def list_calendars(service) -> list[dict]:
+    """Every readable calendar, most important first.
+
+    Order matters twice over: it decides which copy of a duplicated event
+    survives dedupe, and the first entry is treated as "primary" — losing it
+    fails the whole refresh rather than publishing an incomplete day.
+
+    Explicitly configured ids come first and are always included, because a
+    service account only sees calendars shared with it and those do not reliably
+    appear in calendarList.list().
     """
     found: list[dict] = []
+    seen: set[str] = set()
+
+    for cal_id in config.calendar_ids():
+        if cal_id in seen:
+            continue
+        cal = get_calendar(service, cal_id)
+        if cal is None or _excluded(cal_id, cal["name"]):
+            continue
+        seen.add(cal_id)
+        found.append(cal)
+
+    # calendarList discovery only ever returns anything in the OAuth fallback
+    # mode; a service account's own list is always empty.  A failure here is
+    # therefore not fatal.
+    discovered: list[dict] = []
     page_token = None
 
     for _ in range(_MAX_PAGES):
-        # showDeleted/showHidden both default to False, which is what we want.
-        resp = service.calendarList().list(
-            maxResults=_PAGE_SIZE, pageToken=page_token
-        ).execute()
+        try:
+            # showDeleted/showHidden both default to False, which is what we want.
+            resp = service.calendarList().list(
+                maxResults=_PAGE_SIZE, pageToken=page_token
+            ).execute()
+        except Exception:
+            break
 
         for entry in resp.get("items", []):
             cal_id = entry.get("id")
@@ -63,12 +110,11 @@ def list_calendars(service) -> list[dict]:
             # including these calendars renders a column of "(no title)".
             if entry.get("accessRole") == "freeBusyReader":
                 continue
-            if cal_id in config.EXCLUDE_CALENDAR_IDS:
-                continue
-            if any(s in name.lower() for s in config.EXCLUDE_CALENDAR_NAME_SUBSTRINGS):
+            if cal_id in seen or _excluded(cal_id, name):
                 continue
 
-            found.append(
+            seen.add(cal_id)
+            discovered.append(
                 {"id": cal_id, "name": name, "primary": bool(entry.get("primary"))}
             )
 
@@ -78,7 +124,12 @@ def list_calendars(service) -> list[dict]:
 
     # NOTE: deliberately not filtering on `selected`.  It is false-by-default
     # and often absent, so filtering on it silently drops real calendars.
-    found.sort(key=lambda c: (not c["primary"], c["name"].casefold()))
+    discovered.sort(key=lambda c: (not c["primary"], c["name"].casefold()))
+    found.extend(discovered)
+
+    # Whatever ended up first is the one we cannot afford to lose.
+    if found and not any(c["primary"] for c in found):
+        found[0]["primary"] = True
     return found
 
 

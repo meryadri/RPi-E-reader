@@ -102,9 +102,10 @@ Button-driven. To upload books, press `M` to open Settings, toggle
 No input — it just displays. All content comes from `apps/dashboard/data.py`, the
 single seam between the screen and its data sources.
 
-**Calendar is live.** It shows today's all-day events across all your subscribed
-Google calendars, fetched on a background thread. One-time setup (a Google Cloud
-OAuth client and a browser consent on your laptop) is documented separately in
+**Calendar is live.** It shows today's all-day Google Calendar events, fetched on
+a background thread. Setup uses a **service account** — a robot Google account you
+share your calendars with, so there's no consent screen, no browser step and no
+credential that expires. It's documented separately in
 **[`integrations/google_calendar/README.md`](integrations/google_calendar/README.md)**.
 Until that's done the panel reads "Calendar not connected" — everything else still
 works.

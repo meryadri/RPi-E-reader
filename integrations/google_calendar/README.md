@@ -1,81 +1,115 @@
 # Google Calendar integration
 
-Fetches **today's all-day events** across all your subscribed calendars and hands
-them to the dashboard app. Read-only — the scope used cannot modify your calendar.
+Fetches **today's all-day events** from your Google calendars and hands them to
+the dashboard app. Read-only — the scope used cannot modify anything.
 
-Setup is a one-time job on a machine with a browser (your laptop). The Pi only
-ever needs the resulting `token.json`.
+Setup uses a **service account**: a robot Google account that you share your
+calendars with. There is no consent screen, no browser step, and no token that
+expires. This is the right shape for a headless device.
+
+> **Why not the normal OAuth flow?** It needs a *published* OAuth consent
+> screen, and Google will only publish one if you supply a homepage and privacy
+> policy on a domain you can verify in Google Search Console. There is no way
+> around that with a GitHub URL. The OAuth path is still implemented as a
+> fallback (see the bottom of this file) if you ever have a verified domain.
 
 ---
 
-## 1. Google Cloud console
+## 1. Create the service account
 
-1. Go to [console.cloud.google.com](https://console.cl oud.google.com) and create a
-   project (e.g. `rpi-eink-dashboard`).
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create
+   a project (e.g. `rpi-eink-dashboard`).
 2. **APIs & Services → Library → Google Calendar API → Enable.**
-3. **OAuth consent screen** → User type **External**. (A personal Gmail account
-   cannot use _Internal_ — that requires Google Workspace.) Fill in the app name
-   and the two email fields, and add your own Gmail as a **Test user**.
-4. **Publish the app.** Under _Audience_, click **Publish app** so the status
-   changes from "Testing" to "In production".
-
-   > **Do this before step 6.** While the app is in Testing, a refresh token for
-   > a sensitive scope — which `calendar.readonly` is — **expires after 7 days**,
-   > and the dashboard would silently stop updating every week. If you authorise
-   > while still in Testing, the token you copy to the Pi is already on that
-   > 7-day clock and you will have to redo it.
-   >
-   > Publishing needs no Google verification review for personal use. You will
-   > see a "Google hasn't verified this app" screen once during consent —
-   > _Advanced → Go to … (unsafe)_. The 100-user cap on unverified apps is
-   > irrelevant for a single user.
-
-5. **Credentials → Create credentials → OAuth client ID → Application type:
-   Desktop app.** Download the JSON and save it as:
+3. **IAM & Admin → Service Accounts → Create service account.**
+   - Name it anything (`rpi-dashboard`).
+   - Skip the optional "grant access" steps — it needs no project roles.
+4. Open the new service account → **Keys → Add key → Create new key → JSON.**
+   Save the download as:
 
    ```
-   integrations/google_calendar/secrets/credentials.json
+   integrations/google_calendar/secrets/service_account.json
    ```
 
-   (Google names the download `client_secret_…apps.googleusercontent.com.json`;
-   rename it. Everything in `secrets/` is gitignored wholesale.)
+   Everything in `secrets/` is gitignored wholesale, including by a `.gitignore`
+   inside that directory, so it cannot be committed by accident.
 
-## 2. Authorise, on the laptop
+You never touch the OAuth consent screen. There is nothing to publish.
+
+## 2. Find the robot's email address
 
 ```bash
-pip install -r requirements.txt
 python -m integrations.google_calendar
 ```
 
-A browser opens, you approve, and `secrets/token.json` is written with mode
-`0600`. The out-of-band console flow was removed by Google in 2022, so this step
-genuinely needs a browser — hence doing it here and copying the result.
+It prints something like:
 
-Verify it actually works before touching the Pi:
-
-```bash
-python -m integrations.google_calendar --check
+```
+Auth mode: service_account
+Service account: rpi-dashboard@rpi-eink-dashboard.iam.gserviceaccount.com
+Calendars must be shared with that address.
 ```
 
-That prints your calendars and today's all-day events as plain text. It is the
-fastest way to tell "the API is broken" apart from "the display is broken", and
-it works over SSH.
+Copy that address.
 
-## 3. Copy to the Pi
+## 3. Share your calendars with it
 
-Copy **`token.json` only**. It already embeds the client id, client secret and
-refresh token, so the Pi does not need `credentials.json` — leave the client
-secret on your laptop.
+For **each** calendar you want on the dashboard, in
+[Google Calendar](https://calendar.google.com):
+
+1. Hover the calendar in the left sidebar → **⋮ → Settings and sharing**.
+2. **Share with specific people or groups → Add people** → paste the service
+   account address.
+3. Permission: **See all event details**. (Not "See only free/busy" — that
+   returns events with no titles.)
+4. On the same settings page, scroll to **Integrate calendar** and copy the
+   **Calendar ID**. For your main calendar this is just your Gmail address.
+
+Then tell the app about each one:
 
 ```bash
-scp integrations/google_calendar/secrets/token.json \
+python -m integrations.google_calendar --add-calendar you@gmail.com
+python -m integrations.google_calendar --add-calendar abc123...@group.calendar.google.com
+```
+
+That checks the calendar is actually readable and appends its id to
+`secrets/calendars.json`. It makes no write call to Google — a service account
+has no calendar list of its own, and registering one would need a write scope
+this integration deliberately never requests.
+
+### What you cannot share
+
+Google-generated calendars have no sharing settings, so a service account cannot
+read them:
+
+- **Birthdays** (built from your Contacts)
+- **Holidays in …** and other subscribed public calendars
+
+Only calendars you own can be shared. If you specifically want birthdays or
+holidays on the dashboard, the options are to recreate them as a normal calendar
+you own, or to use the OAuth fallback below with a verified domain.
+
+## 4. Verify
+
+```bash
+python -m integrations.google_calendar
+```
+
+Prints the calendars it can see and today's all-day events. This works over SSH
+and is the fastest way to tell "the API is broken" from "the display is broken".
+
+## 5. Copy to the Pi
+
+```bash
+scp integrations/google_calendar/secrets/service_account.json \
     pi@raspberrypi.local:~/RPi-E-reader-/integrations/google_calendar/secrets/
 ssh pi@raspberrypi.local \
-    chmod 600 ~/RPi-E-reader-/integrations/google_calendar/secrets/token.json
+    chmod 600 ~/RPi-E-reader-/integrations/google_calendar/secrets/service_account.json
 ```
 
-The `expiry` in the copied file will be stale; it refreshes automatically on
-first use.
+The key is a **permanent credential** — treat the Pi's filesystem accordingly.
+To revoke it, delete the key in the Cloud console (IAM → Service Accounts →
+Keys), or remove the sharing from the calendar. Either takes effect immediately
+and needs nothing done on the device.
 
 **Also set the Pi's time zone.** A freshly imaged Raspberry Pi OS runs on UTC,
 which would roll the dashboard over to "tomorrow" at 8pm Eastern — and it works
@@ -92,20 +126,19 @@ timedatectl          # confirm NTP is synchronised
 
 All via environment variable; defaults are in `config.py`.
 
-| Variable               | Default            | Meaning                                              |
-| ---------------------- | ------------------ | ---------------------------------------------------- |
-| `GCAL_TZ`              | `America/New_York` | IANA zone used to decide what "today" is             |
-| `GCAL_REFRESH_SECONDS` | `1800`             | Ordinary poll interval (30 min)                      |
-| `GCAL_STALE_AFTER`     | `2700`             | Age at which the panel shows an "as of HH:MM" marker |
-| `GCAL_BIRTHDAYS`       | `1`                | Set `0` to hide birthdays                            |
-| `GCAL_HIDE_DECLINED`   | `1`                | Set `0` to show events you declined                  |
-| `GCAL_EXCLUDE_IDS`     | —                  | Comma-separated calendar ids to skip                 |
-| `GCAL_EXCLUDE_NAMES`   | —                  | Comma-separated name substrings to skip              |
-| `GCAL_SECRETS_DIR`     | `./secrets`        | Move credentials elsewhere (e.g. `~/.config`)        |
+| Variable | Default | Meaning |
+|---|---|---|
+| `GCAL_TZ` | `America/New_York` | IANA zone used to decide what "today" is |
+| `GCAL_CALENDAR_IDS` | — | Comma-separated ids, most important first. Merged with `secrets/calendars.json` |
+| `GCAL_REFRESH_SECONDS` | `1800` | Ordinary poll interval (30 min) |
+| `GCAL_STALE_AFTER` | `2700` | Age at which the panel shows an "as of HH:MM" marker |
+| `GCAL_BIRTHDAYS` | `1` | Set `0` to hide birthday events |
+| `GCAL_HIDE_DECLINED` | `1` | Set `0` to show events you declined |
+| `GCAL_EXCLUDE_IDS` | — | Comma-separated calendar ids to skip |
+| `GCAL_EXCLUDE_NAMES` | — | Comma-separated name substrings to skip |
+| `GCAL_SECRETS_DIR` | `./secrets` | Move credentials elsewhere (e.g. `~/.config`) |
 
 ### How often it fetches
-
-Three things trigger a fetch:
 
 1. **Startup** — immediately, so the panel is right as soon as it boots.
 2. **Local midnight** — the one that matters. "Today" changes, so the event list
@@ -114,62 +147,69 @@ Three things trigger a fetch:
    corrections, DST, and the Pi's lack of a real-time clock.
 3. **Every 30 minutes otherwise** — this only covers same-day edits, which are
    rare for all-day events. Quota is a non-issue (Google allows 1,000,000
-   queries/day; ~10 calendars at this cadence is a few hundred).
+   queries/day).
 
-On failure it backs off 30s → 60s → 120s → 300s so a Wi-Fi blip doesn't leave
-the panel stale for a full interval. On an auth failure it backs off to hourly,
-since a revoked token will not fix itself.
-
-**A fetch that returns unchanged events writes nothing to the e-ink panel.** The
-snapshot's `version` only increments when the rendered content actually differs.
+On failure it backs off 30s → 60s → 120s → 300s. **A fetch returning unchanged
+events writes nothing to the e-ink panel** — the snapshot's `version` only
+increments when the rendered content actually differs.
 
 ### What gets filtered out
 
 - `workingLocation` events. Google auto-creates one per weekday on your primary
   calendar, so without this "Office" would be the top row every working day.
-- Cancelled events, and events _you_ have declined.
-- Calendars you only have `freeBusyReader` access to — their events come back
-  with no title at all.
-
-Birthdays and holidays are **kept** (they're the point of an all-day dashboard).
-If a holiday calendar floods the panel, add it to `GCAL_EXCLUDE_NAMES`.
+- Cancelled events, and events *you* have declined.
+- Calendars you only have free/busy access to — their events have no titles.
 
 ---
 
 ## Troubleshooting
 
-Run `python -m integrations.google_calendar --check` first — it isolates the
-API from the display.
+Run `python -m integrations.google_calendar` first — it isolates the API from
+the display.
 
-| Symptom                                 | Cause                                                                                                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Panel shows "Calendar not connected"    | No `token.json`, or it was revoked. Re-run the bootstrap.                                                                       |
-| Worked for exactly 7 days, then stopped | The OAuth app was still in "Testing" when you authorised. Publish it (step 4), then re-run the bootstrap.                       |
-| `invalid_grant`                         | Access revoked, 6+ months unused, or a password change. Re-run the bootstrap.                                                   |
-| Stops working ~1 hour after setup       | No refresh token was issued. Revoke at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) and re-run. |
-| Events show on the wrong day            | The Pi's time zone. `timedatectl set-timezone`, or set `GCAL_TZ`.                                                               |
-| An event on your calendar never appears | Check `--check` output. If it's missing there, it may be a `workingLocation` event or one you've declined.                      |
-| No calendars returned                   | The Calendar API isn't enabled on the project (step 2).                                                                         |
+| Symptom | Cause |
+|---|---|
+| "Calendar not connected" on the panel | No `service_account.json`, or it's unreadable |
+| `0 calendar(s) visible` | Calendar not shared with the robot address, or not yet registered with `--add-calendar` |
+| Events have no titles | Calendar was shared as "See only free/busy" — change to "See all event details" |
+| `--add-calendar` says "Cannot read" | The calendar isn't shared with the robot address yet, or the id is wrong |
+| Birthdays/holidays missing | Expected — Google-generated calendars can't be shared (see above) |
+| Events show on the wrong day | The Pi's time zone. `timedatectl set-timezone`, or set `GCAL_TZ` |
+| An event never appears | Check the `--check` output. It may be a `workingLocation` event or one you declined |
 
-### Revoking access
+---
 
-[myaccount.google.com/permissions](https://myaccount.google.com/permissions) →
-find the app → _Remove access_. The token on the Pi stops working immediately;
-nothing needs to be done on the device.
+## OAuth fallback
+
+If you have a domain verified in Google Search Console, you can use the normal
+installed-app flow instead and get access to *all* subscribed calendars,
+birthdays and holidays included.
+
+1. Publish an OAuth consent screen (needs homepage + privacy policy on your
+   verified domain). **Publish before authorising** — while the app is in
+   "Testing" the refresh token expires after 7 days.
+2. Create an OAuth client of type **Desktop app**, save it as
+   `secrets/credentials.json`.
+3. `python -m integrations.google_calendar --auth`
+4. Copy the resulting `secrets/token.json` to the Pi.
+
+`auth.py` prefers `service_account.json` when both are present — delete it to use
+the OAuth token.
 
 ---
 
 ## Layout
 
-| File         | Role                                                   |
-| ------------ | ------------------------------------------------------ |
-| `config.py`  | Tunables, paths, env overrides                         |
-| `auth.py`    | OAuth bootstrap, credential loading, `--check`         |
-| `client.py`  | API calls only                                         |
-| `events.py`  | Pure date/filter logic — no network, fully unit-tested |
-| `cache.py`   | Last-good snapshot at `data/calendar_cache.json`       |
-| `service.py` | Refresh thread and the immutable snapshot apps read    |
+| File | Role |
+|---|---|
+| `config.py` | Tunables, paths, env overrides |
+| `auth.py` | Service-account and OAuth credential loading |
+| `client.py` | API calls only |
+| `events.py` | Pure date/filter logic — no network, fully unit-tested |
+| `cache.py` | Last-good snapshot at `data/calendar_cache.json` |
+| `service.py` | Refresh thread and the immutable snapshot apps read |
+| `__main__.py` | `--check` / `--add-calendar` / `--auth` |
 
 `events.py` is deliberately free of network and Google objects: all the
-correctness risk in this feature is date arithmetic, so it's kept somewhere that
-`pytest` can reach offline. See `tests/test_calendar_events.py`.
+correctness risk here is date arithmetic, so it lives somewhere `pytest` can
+reach offline. See `tests/test_calendar_events.py`.
