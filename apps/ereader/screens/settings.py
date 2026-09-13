@@ -13,10 +13,10 @@ Navigation:
   ESC       save and return to library
 """
 from __future__ import annotations
-import socket
 from PIL import Image
 
 from display import fonts
+from display.netinfo import local_ip as _local_ip
 from display.runtime import Screen, StateMachine
 from apps.ereader import server as server_manager
 from apps.ereader.paginator import FONT_SIZE_MIN, FONT_SIZE_MAX, DEFAULT_FONT_SIZE
@@ -34,15 +34,6 @@ _ITEMS = ["Font", "Font Size", "Upload Server"]
 QUOTE = "Quidquid latine dictum sit, altum videtur."
 
 
-def _local_ip() -> str:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
 
 
 class SettingsScreen(Screen):

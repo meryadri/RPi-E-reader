@@ -28,7 +28,7 @@ def main():
     print(f"  {CALENDAR} (cached calendar events)")
     print(f"  {WEATHER} (cached weather reading)")
     print()
-    print("Your Google credentials are NOT touched.")
+    print("Your Google credentials and private/ habits are NOT touched.")
     print()
     if not confirm("Continue?"):
         print("Aborted.")

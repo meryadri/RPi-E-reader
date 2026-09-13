@@ -7,13 +7,13 @@ Layout
 | 14:32                                   [sun]  24°C         |
 | Sunday 12 July                                 Clear        |
 |-------------------------------------------------------------|
-| .-------------------------.  |  TRAINING                    |
-| | Dentist            2/5  |  |  Today: Tempo run            |
-| | Cleaning + check-up     |  |  8 km @ 4:45/km              |
-| '-------------------------'  |  Wk 3 / 12                   |
-| .-------------------------.  |  32 km this week             |
-| | Anna's birthday         |  |                              |
-| '-------------------------'  |                              |
+| .-------------------------.  |  TODAY                  3/8 |
+| | Dentist            2/5  |  |  [x] A-b-c-              12  |
+| | Cleaning + check-up     |  |  [x] D-e-f-              45  |
+| '-------------------------'  |  [ ] Ghi                     |
+| .-------------------------.  |  [x] J-k-l-               3  |
+| | Anna's birthday         |  |  [ ] Mno                  7  |
+| '-------------------------'  |  [ ] Pqr                  2  |
 +-------------------------------------------------------------+
 
 Each event is a rounded card: the title on top (wrapping to two lines) and the
@@ -51,6 +51,12 @@ MARKER_GAP = 10      # space between the title and the "2/5" span marker
 NOTE_H = 22          # reserved footer for the staleness note
 MORE_H = 24          # reserved footer for "+N more"
 
+# Habit checklist (right column)
+HAB_Y0 = TOP_H + 60   # first row, below the header
+HAB_ROW_H = 33
+HAB_BOX = 17          # checkbox side
+HAB_BOX_GAP = 13      # gap between checkbox and label
+
 # Weather icon, sized to the space left of the temperature in the top band.
 WX_ICON_R = 28       # radius; the glyph occupies roughly 2r
 WX_ICON_CY = 56      # vertical centre, balanced against temp + condition lines
@@ -63,6 +69,7 @@ class DashboardScreen(Screen):
         self._last_minute: str | None = None
         self._cal_version: int | None = None
         self._wx_version: int | None = None
+        self._hab_version: int | None = None
 
     def on_enter(self) -> None:
         self.sm.mark_dirty("full")
@@ -74,7 +81,7 @@ class DashboardScreen(Screen):
     def poll(self) -> None:
         """Redraw when the clock ticks or the calendar changes — nothing else."""
         if (self._last_minute is None or self._cal_version is None
-                or self._wx_version is None):
+                or self._wx_version is None or self._hab_version is None):
             # First frame: on_enter already queued a "full" refresh to clear the
             # panel.  Marking dirty here would downgrade it to "partial" and
             # leave whatever was on the e-ink before showing through.
@@ -92,6 +99,9 @@ class DashboardScreen(Screen):
             self.sm.mark_dirty("partial")
             return
         if data.get_weather_snapshot().version != self._wx_version:
+            self.sm.mark_dirty("partial")
+            return
+        if data.get_habits().version != self._hab_version:
             self.sm.mark_dirty("partial")
 
     # ------------------------------------------------------------------
@@ -127,7 +137,9 @@ class DashboardScreen(Screen):
         draw.line([(mid_x, TOP_H + 16), (mid_x, self.HEIGHT - MARGIN)], fill="black", width=1)
 
         self._draw_calendar(draw, cal, x0=MARGIN, x1=mid_x - 20)
-        self._draw_training(draw, data.get_training(), x0=mid_x + 24)
+        hab = data.get_habits()
+        self._hab_version = hab.version
+        self._draw_habits(draw, hab, x0=mid_x + 24, x1=self.WIDTH - MARGIN)
 
         return img
 
@@ -252,22 +264,60 @@ class DashboardScreen(Screen):
             draw.text((x0 + BOX_PAD_X, y + 2), f"+{overflow} more",
                       font=f_desc, fill="black")
 
-    def _draw_training(self, draw, tr, x0) -> None:
-        f_head = fonts.load(22, bold=True)
-        f_big = fonts.load(30, bold=True)
-        f_item = fonts.load(22)
-        f_meta = fonts.load(20)
+    def _draw_habits(self, draw, hab, x0, x1) -> None:
+        f_head = fonts.load(20, bold=True)
+        f_item = fonts.load(19)
+        f_small = fonts.load(15)
 
         y = TOP_H + 26
-        draw.text((x0, y), "TRAINING", font=f_head, fill="black")
-        y += 46
-        draw.text((x0, y), tr["today"], font=f_big, fill="black")
-        y += 44
-        draw.text((x0, y), tr["detail"], font=f_item, fill="black")
-        y += 46
-        draw.text((x0, y), tr["week"], font=f_meta, fill="black")
-        y += 30
-        draw.text((x0, y), tr["volume"], font=f_meta, fill="black")
+        draw.text((x0, y), "TODAY", font=f_head, fill="black")
+
+        if not hab.configured:
+            draw.text((x0, HAB_Y0), "No habits configured", font=f_item, fill="black")
+            draw.text((x0, HAB_Y0 + 26), "See private/README.md",
+                      font=f_small, fill="black")
+            return
+
+        done_count, total = hab.progress()
+        prog = f"{done_count}/{total}"
+        draw.text((x1 - _text_w(draw, prog, f_head), y), prog, font=f_head, fill="black")
+
+        label_x = x0 + HAB_BOX + HAB_BOX_GAP
+        row_y = HAB_Y0
+
+        for name in hab.habits:
+            done = name in hab.done
+            box_y = row_y + 2
+            box = [(x0, box_y), (x0 + HAB_BOX, box_y + HAB_BOX)]
+
+            if done:
+                draw.rounded_rectangle(box, radius=4, fill="black")
+                # A drawn tick rather than a glyph — CommitMono has no check mark.
+                cx, cy = x0 + HAB_BOX / 2, box_y + HAB_BOX / 2
+                draw.line([(cx - 4, cy), (cx - 1, cy + 3.5), (cx + 4.5, cy - 4)],
+                          fill="white", width=2)
+            else:
+                draw.rounded_rectangle(box, radius=4, outline="black", width=2)
+
+            streak = hab.streaks.get(name, 0)
+            streak_str = str(streak) if streak else ""
+            streak_w = _text_w(draw, streak_str, f_small) if streak_str else 0
+            if streak_str:
+                draw.text((x1 - streak_w, row_y + 3), streak_str,
+                          font=f_small, fill="black")
+
+            label_limit = x1 - label_x - (streak_w + 10 if streak_str else 0)
+            label = _ellipsize(draw, name, f_item, label_limit)
+            draw.text((label_x, row_y), label, font=f_item, fill="black")
+
+            if done:
+                # Strikethrough, so what is left reads at a glance from across
+                # the room rather than needing the checkbox to be examined.
+                w = _text_w(draw, label, f_item)
+                mid = row_y + 11
+                draw.line([(label_x, mid), (label_x + w, mid)], fill="black", width=2)
+
+            row_y += HAB_ROW_H
 
 
 def _empty_text(cal) -> str:

@@ -2,10 +2,12 @@
 Dashboard app definition.
 
 Landscape, no buttons.  Shows clock/date, weather, today's all-day calendar
-events and the running training plan.
+events and a daily habit checklist.
 
-Calendar (see integrations/google_calendar/README.md for setup) and weather
-(Open-Meteo, no setup needed) are live.  Training is still stubbed in data.py.
+All three data sources are live: Google Calendar (see
+integrations/google_calendar/README.md), Open-Meteo weather (no setup), and the
+habit checklist (see private/README.md).  The habit web server starts with the
+app so the list can be ticked from a phone on the same network.
 """
 from display.runtime import App, LANDSCAPE
 

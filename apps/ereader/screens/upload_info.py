@@ -3,20 +3,11 @@ Upload info screen — shows the Flask server URL so the user knows where to upl
 """
 from __future__ import annotations
 from display import fonts
+from display.netinfo import local_ip as _local_ip
 from display.runtime import Screen, StateMachine
 from display.hal.input_base import ButtonEvent, Button
-import socket
 
 
-def _local_ip() -> str:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
 
 
 class UploadInfoScreen(Screen):

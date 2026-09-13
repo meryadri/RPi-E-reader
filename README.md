@@ -57,6 +57,7 @@ app, so the same core renders portrait or landscape without changes to screen co
 │       ├── app.py                # APP = App(... LANDSCAPE, uses_input=False ...)
 │       ├── data.py               # Data seam: live calendar, stubbed weather/training
 │       └── screens/dashboard.py  # Clock, weather, calendar, training layout
+├── private/                      # Habit list + history (gitignored)
 ├── integrations/                 # External data sources (app-agnostic)
 │   ├── google_calendar/          # Calendar API — see its own README
 │   └── open_meteo/               # Weather — no API key needed
@@ -118,8 +119,16 @@ and no setup at all**; see
 the location. Icons come from the bundled
 [Weather Icons](https://github.com/erikflowers/weather-icons) font (SIL OFL 1.1).
 
-**Training is still hardcoded** in `data.py`, waiting for the same treatment; the
-screen layout won't need to change when it goes live.
+**The habit checklist is live.** The right column is a fixed daily checklist you
+tick from your phone: the app serves a small page on your local network (port
+3004), and because it runs in the same process as the display loop, a tap
+repaints the panel within a second. It tracks streaks and shows each habit's record as
+calendar months going back six months. Streaks count weekdays only, so a missed
+weekend never breaks a run.
+
+The habit names and their history live in `private/`, which is gitignored
+wholesale so nothing personal reaches this repo — see
+[`private/README.md`](private/README.md) for setup.
 
 The panel is only written to when displayed content actually changes: the clock on
 each minute tick, and the calendar column only when the event list differs from what

@@ -9,6 +9,14 @@
 /HARDWARE.md
 /why-we-sleep
 
+# Private habit list and completion log.  Ignore the directory's *contents*
+# rather than the directory itself, so its own self-protecting .gitignore and
+# README still get committed — git will not descend into a fully ignored
+# directory to find them.
+/private/*
+!/private/.gitignore
+!/private/README.md
+
 # Google Calendar credentials.  Ignore the directory's *contents* rather than the
 # directory itself, so its own self-protecting .gitignore still gets committed —
 # git will not descend into a fully ignored directory to find it.

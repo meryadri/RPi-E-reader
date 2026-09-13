@@ -1,0 +1,8 @@
+# Ignore everything in this directory.
+#
+# Deliberately wholesale rather than per-file: this holds the habit list and the
+# completion log, which must never reach the public repo.  Anything dropped in
+# here is invisible to git regardless of what it is named.
+*
+!.gitignore
+!README.md
