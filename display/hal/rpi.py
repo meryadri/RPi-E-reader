@@ -76,14 +76,19 @@ class RpiDisplay(DisplayBase):
     # Do a full refresh every N fast refreshes to clear ghosting
     FULL_REFRESH_INTERVAL = 100
 
-    def __init__(self, width: int, height: int) -> None:
+    def __init__(self, width: int, height: int, use_input: bool = True) -> None:
         super().__init__(width, height)
         self._event_queue: queue.Queue[ButtonEvent] = queue.Queue()
         self._running = True
         self._fast_count = 0
+        self._GPIO = None
 
         self._epd = self._init_display()
-        self._init_gpio()
+        # Screen-only apps (the dashboard sets uses_input=False) have no buttons
+        # wired, so don't claim GPIO — that also means they don't need RPi.GPIO
+        # installed at all.
+        if use_input:
+            self._init_gpio()
 
         # Graceful shutdown on Ctrl-C
         signal.signal(signal.SIGINT,  self._shutdown)
@@ -210,7 +215,8 @@ class RpiDisplay(DisplayBase):
         except Exception:
             pass
         try:
-            self._GPIO.cleanup()
+            if self._GPIO is not None:
+                self._GPIO.cleanup()
         except Exception:
             pass
 

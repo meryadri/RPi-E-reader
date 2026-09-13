@@ -1,0 +1,33 @@
+# Runs the dashboard on boot.
+#
+#   sudo cp deploy/dashboard.service /etc/systemd/system/
+#   sudo systemctl enable --now dashboard
+#
+# Paths assume user "meryadri" and ~/RPi-E-reader-; edit if that changes.
+
+[Unit]
+Description=E-ink dashboard
+# The habit web server and the calendar/weather fetches all need the network.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=meryadri
+WorkingDirectory=/home/meryadri/RPi-E-reader-
+ExecStart=/home/meryadri/RPi-E-reader-/venv/bin/python main.py --app dashboard --backend rpi
+
+# The Pi has no real-time clock, so on a cold boot the system time is wrong
+# until NTP syncs.  A wrong date means the wrong calendar day and the wrong
+# habit day, so wait for it rather than racing it.
+ExecStartPre=/bin/sh -c 'timeout 60 /usr/bin/timedatectl show -p NTPSynchronized --value | grep -q yes || sleep 20'
+
+Restart=always
+RestartSec=10
+
+# Keep the last-good calendar/weather and the habit log across restarts.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

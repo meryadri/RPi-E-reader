@@ -136,6 +136,10 @@ is already on screen. Both use a flicker-free partial refresh.
 
 ## Running on the Raspberry Pi
 
+**To set the dashboard up on a Pi from scratch, follow [DEPLOY.md](DEPLOY.md)** —
+ten steps covering the display, dependencies, private files and boot-on-startup.
+
+
 The e-ink backends already exist — select one with `--backend`:
 
 ```bash

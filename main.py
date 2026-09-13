@@ -23,13 +23,13 @@ from display.runtime import run
 _FPS = {"sim": 30, "rpi": 10, "rpi_ssh": 10}
 
 
-def _make_display(backend: str, width: int, height: int):
+def _make_display(backend: str, width: int, height: int, use_input: bool = True):
     if backend == "sim":
         from display.hal.simulator import SimulatorDisplay
         return SimulatorDisplay(width, height)
     if backend == "rpi":
         from display.hal.rpi import RpiDisplay
-        return RpiDisplay(width, height)
+        return RpiDisplay(width, height, use_input=use_input)
     if backend == "rpi_ssh":
         from display.hal.rpi_ssh import RpiSshDisplay
         return RpiSshDisplay(width, height)
@@ -44,7 +44,7 @@ def main() -> None:
 
     app = importlib.import_module(f"apps.{args.app}.app").APP
     width, height = app.size
-    display = _make_display(args.backend, width, height)
+    display = _make_display(args.backend, width, height, use_input=app.uses_input)
 
     try:
         run(app, display, target_fps=app.fps or _FPS[args.backend])
