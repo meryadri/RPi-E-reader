@@ -73,7 +73,7 @@ class LibraryScreen(Screen):
         f_hint    = fonts.load(14)
 
         # Header
-        draw.text((MARGIN_X, 16), "Adrien's Library", font=f_header, fill="black")
+        draw.text((MARGIN_X, 16), "Library", font=f_header, fill="black")
         draw.line(
             [(MARGIN_X, HEADER_H - 6), (self.WIDTH - MARGIN_X, HEADER_H - 6)],
             fill="black", width=1,

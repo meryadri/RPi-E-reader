@@ -57,6 +57,8 @@ app, so the same core renders portrait or landscape without changes to screen co
 │       ├── app.py                # APP = App(... LANDSCAPE, uses_input=False ...)
 │       ├── data.py               # Data seam: live calendar, stubbed weather/training
 │       └── screens/dashboard.py  # Clock, weather, calendar, training layout
+├── SETUP.md                      # Shared Pi setup (display, SPI, deps)
+├── deploy/dashboard.service      # systemd unit for the dashboard
 ├── private/                      # Habit list + history (gitignored)
 ├── integrations/                 # External data sources (app-agnostic)
 │   ├── google_calendar/          # Calendar API — see its own README
@@ -136,16 +138,20 @@ is already on screen. Both use a flicker-free partial refresh.
 
 ## Running on the Raspberry Pi
 
-**To set the dashboard up on a Pi from scratch, follow [DEPLOY.md](DEPLOY.md)** —
-ten steps covering the display, dependencies, private files and boot-on-startup.
+Setup is split so the shared parts are done once:
 
+| Guide | Covers |
+|---|---|
+| **[SETUP.md](SETUP.md)** | Display, SPI, time zone, Python environment — **do this first** |
+| **[apps/ereader/SETUP.md](apps/ereader/SETUP.md)** | Button wiring and the e-reader |
+| **[apps/dashboard/SETUP.md](apps/dashboard/SETUP.md)** | Data sources and starting on boot |
 
-The e-ink backends already exist — select one with `--backend`:
+Select a backend with `--backend`:
 
 ```bash
-python main.py --app ereader  --backend rpi_ssh   # e-ink output, control over SSH keyboard
-python main.py --app ereader  --backend rpi        # e-ink output, GPIO buttons
-python main.py --app dashboard --backend rpi        # dashboard on e-ink (landscape is native)
+python main.py --app ereader   --backend rpi_ssh   # e-ink, keyboard over SSH
+python main.py --app ereader   --backend rpi       # e-ink, GPIO buttons
+python main.py --app dashboard --backend rpi       # e-ink, no buttons
 ```
 
 The Waveshare Python library is not on PyPI — install it from their repo (see the

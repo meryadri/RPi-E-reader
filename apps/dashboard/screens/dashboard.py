@@ -3,25 +3,26 @@ Dashboard screen — landscape (800×480), no buttons.
 
 Layout
 ------
-+-------------------------------------------------------------+
-| 14:32                                   [sun]  24°C         |
-| Sunday 12 July                                 Clear        |
-|-------------------------------------------------------------|
-| .-------------------------.  |  TODAY                  3/8 |
-| | Dentist            2/5  |  |  [x] A-b-c-              12  |
-| | Cleaning + check-up     |  |  [x] D-e-f-              45  |
-| '-------------------------'  |  [ ] Ghi                     |
-| .-------------------------.  |  [x] J-k-l-               3  |
-| | Anna's birthday         |  |  [ ] Mno                  7  |
-| '-------------------------'  |  [ ] Pqr                  2  |
-+-------------------------------------------------------------+
++---------------------------------------------------------------+
+| 14:32                      [icon]  18°C / 64°F                |
+| Sunday, September 13            Partly cloudy · 12 km/h       |
+|---------------------------------------------------------------|
+| .-------------------------.  |  TODAY                    3/8  |
+| | Dentist            2/5  |  |  [x] A-b-c-                12  |
+| | Cleaning + check-up     |  |  [ ] Def                    0  |
+| '-------------------------'  |  [x] G-h-i-                 5  |
+| .-------------------------.  |  [ ] Jkl                    2  |
+| | Anna's birthday         |  |                                |
+| '-------------------------'  |                                |
++---------------------------------------------------------------+
 
-Each event is a rounded card: the title on top (wrapping to two lines) and the
-calendar description as a smaller subtitle underneath.  No header, no bullets —
-the cards read as a continuation of the date above them.
+Calendar events are rounded cards: title on top, the event description as a
+smaller subtitle underneath.  Habits are a checklist ticked from a phone, with
+the current streak right-aligned.
 
-The clock redraws itself once a minute; the calendar column redraws only when
-the event list actually changes.  Both use a partial (flicker-free) refresh.
+The panel is written only when displayed content changes — the clock each
+minute, the other columns when their data differs.  All use a flicker-free
+partial refresh.
 """
 from __future__ import annotations
 
@@ -82,17 +83,14 @@ class DashboardScreen(Screen):
         """Redraw when the clock ticks or the calendar changes — nothing else."""
         if (self._last_minute is None or self._cal_version is None
                 or self._wx_version is None or self._hab_version is None):
-            # First frame: on_enter already queued a "full" refresh to clear the
-            # panel.  Marking dirty here would downgrade it to "partial" and
-            # leave whatever was on the e-ink before showing through.
+            # on_enter already queued a full refresh; marking dirty here would
+            # downgrade it to partial and leave the old image showing through.
             return
 
         now = data.get_now().strftime("%H:%M")
         if now != self._last_minute:
-            # "partial" is flicker-free.  display/hal/rpi.py already forces a
-            # full refresh every FULL_REFRESH_INTERVAL partials to clear
-            # ghosting, so this keeps the anti-ghosting behaviour without
-            # flashing the whole panel every 60 seconds.
+            # Partial is flicker-free; rpi.py still forces a full refresh every
+            # FULL_REFRESH_INTERVAL partials to clear ghosting.
             self.sm.mark_dirty("partial")
             return
         if data.get_calendar().version != self._cal_version:
@@ -114,18 +112,13 @@ class DashboardScreen(Screen):
         now = data.get_now()
         self._last_minute = now.strftime("%H:%M")
 
-        # Read the calendar snapshot exactly once and use that object
-        # throughout.  Reading it twice could straddle a publish from the
-        # refresh thread and render an inconsistent frame.
+        # Read each snapshot once: reading twice could straddle a publish and
+        # render an inconsistent frame.
         cal = data.get_calendar()
-        # Record the version from the snapshot actually drawn, not the one seen
-        # in poll() — if the worker published in between, storing poll()'s
-        # version would mark the screen dirty again for content already shown.
+        # Record the version actually drawn, not poll()'s, or a publish in
+        # between would redraw content already on screen.
         self._cal_version = cal.version
 
-        # Same rule as the calendar: read the snapshot once and record the
-        # version actually drawn, so a publish between poll() and render()
-        # cannot cause a redundant redraw.
         wx = data.get_weather_snapshot()
         self._wx_version = wx.version
 
@@ -292,7 +285,7 @@ class DashboardScreen(Screen):
 
             if done:
                 draw.rounded_rectangle(box, radius=4, fill="black")
-                # A drawn tick rather than a glyph — CommitMono has no check mark.
+                # Drawn, not a glyph: CommitMono has no check mark.
                 cx, cy = x0 + HAB_BOX / 2, box_y + HAB_BOX / 2
                 draw.line([(cx - 4, cy), (cx - 1, cy + 3.5), (cx + 4.5, cy - 4)],
                           fill="white", width=2)
@@ -311,8 +304,7 @@ class DashboardScreen(Screen):
             draw.text((label_x, row_y), label, font=f_item, fill="black")
 
             if done:
-                # Strikethrough, so what is left reads at a glance from across
-                # the room rather than needing the checkbox to be examined.
+                # Strikethrough reads from across the room; a checkbox alone does not.
                 w = _text_w(draw, label, f_item)
                 mid = row_y + 11
                 draw.line([(label_x, mid), (label_x + w, mid)], fill="black", width=2)

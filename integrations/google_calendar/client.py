@@ -7,7 +7,6 @@ that logic can be tested without a network or credentials.
 from __future__ import annotations
 
 from datetime import date
-from zoneinfo import ZoneInfo
 
 from . import config, events
 
@@ -174,8 +173,7 @@ def fetch_all_day_events(
     independently so one broken or unshared calendar degrades to "skip it"
     rather than losing the whole refresh.
     """
-    tz = ZoneInfo(config.TIMEZONE)
-    time_min, time_max = events.window_bounds(day, tz)
+    time_min, time_max = events.window_bounds(day, config.tz())
 
     collected: list[dict] = []
     failed: list[dict] = []

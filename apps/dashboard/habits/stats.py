@@ -178,13 +178,5 @@ def month_grid(
     return blocks
 
 
-def day_progress(
-    log: dict[str, list[str]], habits: list[str], today: date
-) -> tuple[int, int]:
-    """(completed, total) for today."""
-    done = set(log.get(today.isoformat(), []))
-    return sum(1 for h in habits if h in done), len(habits)
-
-
 def streaks(log: dict[str, list[str]], habits: list[str], today: date) -> dict[str, int]:
     return {h: current_streak(log, h, today) for h in habits}

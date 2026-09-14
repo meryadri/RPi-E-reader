@@ -43,9 +43,3 @@ def save(weather: dict) -> None:
     except Exception:
         pass
 
-
-def clear() -> None:
-    try:
-        config.CACHE_FILE.unlink(missing_ok=True)
-    except Exception:
-        pass

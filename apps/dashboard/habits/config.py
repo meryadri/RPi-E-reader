@@ -35,13 +35,9 @@ TICK_SECONDS = 30
 def habit_day(now: datetime | None = None) -> date:
     """The day a tick at `now` belongs to.
 
-    The single definition of "today" for the panel, the web page, the log key and
-    every streak calculation.  If anything else grew its own idea of the current
-    day, a tick at 1am would be recorded under one date and counted under
-    another.
-
-    Deliberately different from google_calendar.today(), which is a strict
-    calendar day because calendar events genuinely change at midnight.
+    The single definition of "today" for the panel, the web page, the log key
+    and every streak calculation — a second definition would record a 1am tick
+    under one date and count it under another.
     """
     now = datetime.now() if now is None else now
     return (now - timedelta(hours=ROLLOVER_HOUR)).date()

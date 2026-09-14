@@ -21,7 +21,7 @@ Create `habits.json` with your list, in display order:
 Then start the dashboard. The console prints the URL:
 
 ```
-Habits: http://10.0.0.67:3004/?t=Xk3p...
+Habits: http://<pi-ip>:3004/?t=<token>
 ```
 
 Open that on your phone and tap a row to toggle it. The e-ink panel repaints

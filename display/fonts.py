@@ -16,10 +16,10 @@ WEATHER     = "weather"
 _DIR = Path(__file__).parent.parent / "assets" / "fonts"
 
 _COMMIT_MONO_FILES = {
-    (False, False): "CommitMonoAdrienEreader-400-Regular.otf",
-    (False, True):  "CommitMonoAdrienEreader-400-Italic.otf",
-    (True,  False): "CommitMonoAdrienEreader-700-Regular.otf",
-    (True,  True):  "CommitMonoAdrienEreader-700-Italic.otf",
+    (False, False): "CommitMono-400-Regular.otf",
+    (False, True):  "CommitMono-400-Italic.otf",
+    (True,  False): "CommitMono-700-Regular.otf",
+    (True,  True):  "CommitMono-700-Italic.otf",
 }
 
 # Ordered candidate paths tried left-to-right for system font.

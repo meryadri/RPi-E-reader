@@ -45,7 +45,7 @@ It prints something like:
 
 ```
 Auth mode: service_account
-Service account: rpi-dashboard@rpi-eink-dashboard.iam.gserviceaccount.com
+Service account: <name>@<project>.iam.gserviceaccount.com
 Calendars must be shared with that address.
 ```
 
@@ -101,8 +101,8 @@ and is the fastest way to tell "the API is broken" from "the display is broken".
 
 ```bash
 scp integrations/google_calendar/secrets/service_account.json \
-    pi@raspberrypi.local:~/RPi-E-reader-/integrations/google_calendar/secrets/
-ssh pi@raspberrypi.local \
+    <user>@<pi-host>:~/RPi-E-reader-/integrations/google_calendar/secrets/
+ssh <user>@<pi-host> \
     chmod 600 ~/RPi-E-reader-/integrations/google_calendar/secrets/service_account.json
 ```
 
@@ -111,14 +111,7 @@ To revoke it, delete the key in the Cloud console (IAM → Service Accounts →
 Keys), or remove the sharing from the calendar. Either takes effect immediately
 and needs nothing done on the device.
 
-**Also set the Pi's time zone.** A freshly imaged Raspberry Pi OS runs on UTC,
-which would roll the dashboard over to "tomorrow" at 8pm Eastern — and it works
-perfectly on your laptop, so the simulator will never show you the bug.
-
-```bash
-sudo timedatectl set-timezone America/New_York
-timedatectl          # confirm NTP is synchronised
-```
+See [SETUP.md](../../SETUP.md) for the shared Pi setup, including the time zone.
 
 ---
 
@@ -128,7 +121,7 @@ All via environment variable; defaults are in `config.py`.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `GCAL_TZ` | `America/New_York` | IANA zone used to decide what "today" is |
+| `GCAL_TZ` | system zone | IANA zone used to decide what "today" is |
 | `GCAL_CALENDAR_IDS` | — | Comma-separated ids, most important first. Merged with `secrets/calendars.json` |
 | `GCAL_REFRESH_SECONDS` | `1800` | Ordinary poll interval (30 min) |
 | `GCAL_STALE_AFTER` | `2700` | Age at which the panel shows an "as of HH:MM" marker |

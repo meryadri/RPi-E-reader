@@ -6,7 +6,6 @@
 /data/covers
 **/__pycache__
 *.pyc
-/HARDWARE.md
 /why-we-sleep
 
 # Private habit list and completion log.  Ignore the directory's *contents*

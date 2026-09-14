@@ -56,11 +56,6 @@ def get_calendar() -> gcal.Snapshot:
         return gcal.Snapshot(status=gcal.ERROR, error="calendar unavailable")
 
 
-def get_events() -> tuple[dict, ...]:
-    """Today's all-day calendar events, in display order."""
-    return get_calendar().events
-
-
 def get_habits() -> habits.Snapshot:
     """Today's habit checklist.
 

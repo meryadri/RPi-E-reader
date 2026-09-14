@@ -28,11 +28,8 @@ PLACEHOLDER: dict = {
 
 @dataclass(frozen=True)
 class Snapshot:
-    """An immutable view of current conditions.
-
-    Frozen and replaced wholesale rather than mutated, so the render thread can
-    never see a half-updated reading.
-    """
+    """Replaced wholesale, never mutated, so the render thread cannot see a
+    half-updated reading."""
     status: str = LOADING
     weather: dict = None            # type: ignore[assignment]
     fetched_at: float | None = None
@@ -44,7 +41,7 @@ class Snapshot:
             object.__setattr__(self, "weather", dict(PLACEHOLDER))
 
     def is_stale(self, now: float | None = None) -> bool:
-        """Derived on read, so a worker that died or hung is also caught."""
+        """Derived on read: a worker that died or hung cannot flag itself."""
         if self.fetched_at is None:
             return self.status == OK
         now = time.time() if now is None else now
@@ -99,11 +96,10 @@ def stop() -> None:
 
 
 def _publish(new: Snapshot) -> None:
-    """Publish, bumping version only if the *rendered* values changed.
+    """Bump version only when the rendered values changed.
 
-    Temperatures and wind are already rounded to whole units by client.parse(),
-    so a drift from 18.2 to 18.4 compares equal and writes nothing to the panel.
-    A moving fetched_at on its own is explicitly not a change.
+    Values are rounded in client.parse(), so 18.2 -> 18.4 compares equal and
+    writes nothing to the panel.
     """
     global _snapshot
     with _lock:

@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from . import auth, client, config
 
@@ -63,10 +62,10 @@ def check() -> int:
         print("(for your main calendar it is just your Gmail address).")
         return 1
 
-    today = datetime.now(ZoneInfo(config.TIMEZONE)).date()
+    today = datetime.now(config.tz()).date()
     items, failed = client.fetch_all_day_events(service, calendars, today)
 
-    print(f"\nAll-day events for {today} ({config.TIMEZONE}):")
+    print(f"\nAll-day events for {today}:")
     for item in items:
         span = (
             f"  (day {item['day_index'] + 1}/{item['days_total']})"

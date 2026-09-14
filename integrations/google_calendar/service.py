@@ -11,7 +11,6 @@ import threading
 import time
 from dataclasses import dataclass, replace
 from datetime import date, datetime
-from zoneinfo import ZoneInfo
 
 from . import cache, client, config
 from .auth import AuthError, load_credentials
@@ -25,12 +24,8 @@ ERROR = "error"
 
 @dataclass(frozen=True)
 class Snapshot:
-    """An immutable view of calendar state.
-
-    Frozen and replaced wholesale rather than mutated, so the render thread can
-    never observe a half-updated list.  That removes the race by construction
-    instead of by careful locking.
-    """
+    """Replaced wholesale, never mutated, so the render thread cannot observe a
+    half-updated list."""
     status: str = LOADING
     events: tuple[dict, ...] = ()
     day: date | None = None
@@ -40,12 +35,7 @@ class Snapshot:
     version: int = 0
 
     def is_stale(self, now: float | None = None) -> bool:
-        """Derived on read, not stored.
-
-        A worker thread that died or hung cannot update its own status, so
-        asking "how old is this data" on the main thread is the only check that
-        catches a hung HTTP call as well as an outage.
-        """
+        """Derived on read: a worker that died or hung cannot flag itself."""
         if self.fetched_at is None:
             return self.status == OK
         now = time.time() if now is None else now
@@ -102,8 +92,7 @@ def start() -> None:
     _started_at = time.time()
     _stop.clear()
 
-    # A small local JSON read, so the first frame after a reboot shows real
-    # events rather than "Checking calendar...".
+    # So the first frame after a reboot shows real events, not "Checking...".
     today = _today()
     cached = cache.load(today)
     if cached:
@@ -126,16 +115,14 @@ def stop() -> None:
 # ---------------------------------------------------------------------------
 
 def _today() -> date:
-    return datetime.now(ZoneInfo(config.TIMEZONE)).date()
+    return datetime.now(config.tz()).date()
 
 
 def _publish(new: Snapshot) -> None:
-    """Publish only if the *rendered payload* changed, bumping version if so.
+    """Bump version only when the rendered payload changed.
 
-    This is the whole "only refresh the screen when the info changes" guarantee.
-    A 30-minute poll that returns an identical event list must not bump the
-    version, or the e-ink panel would refresh every 30 minutes for nothing.
-    fetched_at moving on its own is explicitly not a change.
+    A poll returning identical events must not redraw the panel; fetched_at
+    moving on its own is not a change.
     """
     global _snapshot
     with _lock:
@@ -171,8 +158,7 @@ def _refresh_once(today: date) -> None:
     try:
         creds = load_credentials()
     except AuthError as exc:
-        # Distinguishing this from a network blip is the difference between a
-        # dashboard that tells you how to fix it and one that just sits there.
+        # Distinct from a network blip: this one the user can actually fix.
         _error_streak += 1
         _publish(replace(
             current, status=AUTH_REQUIRED, error=str(exc), day=today, partial=False,
@@ -193,9 +179,8 @@ def _refresh_once(today: date) -> None:
         if current.status == OK and current.day == today:
             _publish(replace(current, error=str(exc)))
         else:
-            # Within the first couple of minutes this is probably just the Pi's
-            # clock and network not being up yet (no RTC on a Pi Zero/3), so
-            # stay on "loading" rather than showing an error.
+            # A Pi has no RTC, so early failures are usually just the clock and
+            # network not being up yet.
             booting = (time.time() - _started_at) < 120
             _publish(replace(
                 current,

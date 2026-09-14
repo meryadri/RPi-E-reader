@@ -13,11 +13,8 @@ import re
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-# eventType values that are all-day but are pure noise on a dashboard.
-#
-# "workingLocation" is the one that matters: Google Calendar auto-creates one of
-# these per weekday on your primary calendar, so without this filter "Office" or
-# "Home" would be the top row of the dashboard every single working day.
+# Google auto-creates a "workingLocation" event per weekday on the primary
+# calendar; without this, "Office" is the top row every working day.
 NOISE_EVENT_TYPES = frozenset({"workingLocation"})
 
 NO_TITLE = "(no title)"
@@ -57,20 +54,8 @@ def clean_description(raw: str | None) -> str:
 # ---------------------------------------------------------------------------
 
 def is_all_day(event: dict) -> bool:
-    """True for an all-day event.
-
-    Google marks the distinction by which key is present: an all-day event has
-    start.date ("2026-09-12"), a timed one has start.dateTime.  That is the
-    whole test.
-    """
+    """All-day events carry start.date; timed ones carry start.dateTime."""
     return "date" in (event.get("start") or {})
-
-
-def parse_dt(value: str) -> datetime:
-    """Parse an RFC3339 timestamp into an aware datetime."""
-    # fromisoformat only accepts a trailing "Z" from Python 3.11; Raspberry Pi
-    # OS Bullseye ships 3.9.  One replace keeps this working everywhere.
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def all_day_span(event: dict) -> tuple[date, date] | None:
@@ -94,12 +79,8 @@ def all_day_span(event: dict) -> tuple[date, date] | None:
         except (TypeError, ValueError):
             end = None
 
-    # Two defensive clamps, both of which have been seen in the wild on events
-    # imported from third-party ICS feeds and Outlook syncs:
-    #   - end.date missing entirely
-    #   - end.date == start.date (a "zero-length" all-day event)
-    # Without this, "start <= today < end" is vacuously false and a real event
-    # on your calendar silently never appears, with nothing to debug.
+    # ICS imports and Outlook syncs produce missing or zero-length ends, which
+    # would make "start <= today < end" vacuously false and hide the event.
     if end is None or end <= start:
         end = start + timedelta(days=1)
 
@@ -120,19 +101,6 @@ def covers_day(event: dict, day: date) -> bool:
     return start <= day < end
 
 
-def covers_day_timed(event: dict, day: date, tz: ZoneInfo) -> bool:
-    """True if a timed event overlaps `day` in local time."""
-    try:
-        start = parse_dt(event["start"]["dateTime"])
-        end = parse_dt(event["end"]["dateTime"])
-    except (KeyError, TypeError, ValueError):
-        return False
-    day_start = datetime.combine(day, time.min, tzinfo=tz)
-    day_end = day_start + timedelta(days=1)
-    # Overlap, so an event running 23:00 yesterday -> 01:00 today counts.
-    return start < day_end and end > day_start
-
-
 # ---------------------------------------------------------------------------
 # Filtering
 # ---------------------------------------------------------------------------
@@ -142,12 +110,7 @@ def is_cancelled(event: dict) -> bool:
 
 
 def is_declined_by_self(event: dict) -> bool:
-    """True only if *you* declined.
-
-    `attendees` is absent on most events (no guests at all, or maxAttendees
-    exceeded), hence the .get default.  Only the entry flagged `self` counts —
-    someone else declining is not a reason to hide the event from you.
-    """
+    """Only your own entry counts; someone else declining is not your problem."""
     for attendee in event.get("attendees") or []:
         if attendee.get("self") and attendee.get("responseStatus") == "declined":
             return True
@@ -188,9 +151,8 @@ def keep(
 def normalize(event: dict, calendar_id: str, calendar_name: str, day: date) -> dict:
     """Build the dict the dashboard renders.
 
-    Every key is always present with a str/int/bool value.  The render path has
-    no try/except above it in `display/runtime.py`, so a None leaking through
-    here would crash the whole process, not just the calendar column.
+    Every key is always present: render() has no try/except above it, so a None
+    here would take down the process, not just the calendar column.
     """
     span = all_day_span(event)
     if span is None:
@@ -221,12 +183,10 @@ def normalize(event: dict, calendar_id: str, calendar_name: str, day: date) -> d
 
 
 def sort_key(item: dict) -> tuple:
-    """A deterministic *total* order.
+    """A deterministic total order.
 
-    Determinism is not cosmetic here: the refresh loop only redraws the e-ink
-    panel when the rendered payload differs from the last one.  If two same-day
-    events could swap places between refreshes, the panel would do a full
-    refresh every cycle forever.  Ties break on id, never on dict order.
+    The panel only redraws when the payload differs, so two events swapping
+    places between refreshes would flash the screen every cycle forever.
     """
     return (
         item["start_date"],
@@ -237,14 +197,10 @@ def sort_key(item: dict) -> tuple:
 
 
 def dedupe(items: list[dict]) -> list[dict]:
-    """Drop the same event appearing on more than one calendar.
+    """Drop an invite that appears on both your calendar and the organiser's.
 
-    An invite shows up both on your primary calendar and on the organiser's
-    calendar if you subscribe to it.  iCalUID is stable across those copies, but
-    with singleEvents=True it identifies the *series*, so the key has to include
-    the date or every occurrence of a recurring event would collapse into one.
-
-    Input order decides the winner, so callers should pass primary first.
+    iCalUID identifies the *series* under singleEvents=True, so the key needs
+    the date too or every occurrence would collapse into one.  First wins.
     """
     seen: set[tuple[str, str]] = set()
     out: list[dict] = []
@@ -263,21 +219,13 @@ def dedupe(items: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def window_bounds(day: date, tz: ZoneInfo) -> tuple[str, str]:
-    """RFC3339 (timeMin, timeMax) for a one-day query, widened by a day each side.
+    """RFC3339 (timeMin, timeMax), widened a day each side.
 
-    events.list filters on overlap — timeMin bounds an event's end, timeMax
-    bounds its start — so a fortnight-long holiday that began last week is still
-    returned for a today-only window.
-
-    We widen anyway and re-check with covers_day() locally, because date-only
-    events are resolved in *each calendar's* own time zone.  A subscribed
-    calendar in another zone has its all-day boundaries evaluated against a
-    different offset than ours, which makes boundary events appear and vanish
-    unpredictably.  Widening costs nothing (same one request per calendar) and
-    cannot drop an event, since a longer window is strictly more permissive.
+    Date-only events resolve in each calendar's own time zone, so boundary days
+    appear and vanish unpredictably on a tight window.  Widening costs nothing
+    and cannot drop an event; covers_day() does the exact filtering.
     """
     lo = datetime.combine(day - timedelta(days=1), time.min, tzinfo=tz)
     hi = datetime.combine(day + timedelta(days=2), time.min, tzinfo=tz)
-    # isoformat() on an aware datetime includes the offset.  A naive datetime
-    # would produce no offset and the API would answer HTTP 400.
+    # A naive datetime yields no offset and the API answers HTTP 400.
     return lo.isoformat(), hi.isoformat()

@@ -39,11 +39,6 @@ def test_all_day_vs_timed():
     )
 
 
-def test_trailing_z_parses():
-    """fromisoformat only accepts 'Z' from 3.11; Pi OS Bullseye ships 3.9."""
-    assert ev.parse_dt("2026-09-12T09:00:00Z").tzinfo is not None
-
-
 # --- the exclusive end date ------------------------------------------------
 
 def test_single_day_event_covers_only_its_own_day():

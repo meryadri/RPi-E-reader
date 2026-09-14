@@ -15,7 +15,7 @@ CACHE_FILE = _ROOT / "data" / "weather_cache.json"
 
 # --- Location ---------------------------------------------------------------
 
-# Boston, MA 02119 (Roxbury).
+# Boston, MA.  Override with WEATHER_LAT / WEATHER_LON.
 LATITUDE = float(os.environ.get("WEATHER_LAT", 42.325))
 LONGITUDE = float(os.environ.get("WEATHER_LON", -71.085))
 

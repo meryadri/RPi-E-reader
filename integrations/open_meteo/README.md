@@ -13,8 +13,8 @@ The only thing you might want to change is the location.
 
 ## Location
 
-Defaults to Boston, MA 02119 — `42.325, -71.085`. Override with environment
-variables, or edit `config.py`:
+Defaults to Boston, MA. Override with environment variables, or edit
+`config.py`:
 
 ```bash
 WEATHER_LAT=51.5072 WEATHER_LON=-0.1276 python main.py --app dashboard
@@ -23,7 +23,7 @@ WEATHER_LAT=51.5072 WEATHER_LON=-0.1276 python main.py --app dashboard
 Find coordinates for any place with Open-Meteo's free geocoding endpoint:
 
 ```bash
-curl 'https://geocoding-api.open-meteo.com/v1/search?name=Boston&count=5'
+curl 'https://geocoding-api.open-meteo.com/v1/search?name=<city>&count=5'
 ```
 
 ## Checking it works

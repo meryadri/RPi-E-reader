@@ -3,7 +3,7 @@
 #   sudo cp deploy/dashboard.service /etc/systemd/system/
 #   sudo systemctl enable --now dashboard
 #
-# Paths assume user "meryadri" and ~/RPi-E-reader-; edit if that changes.
+# Edit User= and the paths for your own install.
 
 [Unit]
 Description=E-ink dashboard
@@ -13,9 +13,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=meryadri
-WorkingDirectory=/home/meryadri/RPi-E-reader-
-ExecStart=/home/meryadri/RPi-E-reader-/venv/bin/python main.py --app dashboard --backend rpi
+User=pi
+WorkingDirectory=/home/pi/RPi-E-reader-
+ExecStart=/home/pi/RPi-E-reader-/venv/bin/python main.py --app dashboard --backend rpi
+
+# Your location, used by the weather integration.
+#Environment=WEATHER_LAT=42.325
+#Environment=WEATHER_LON=-71.085
 
 # The Pi has no real-time clock, so on a cold boot the system time is wrong
 # until NTP syncs.  A wrong date means the wrong calendar day and the wrong

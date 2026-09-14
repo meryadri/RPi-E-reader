@@ -29,12 +29,10 @@ def build_url(lat: float, lon: float) -> str:
 
 
 def parse(payload: dict) -> dict:
-    """Normalise an Open-Meteo response into the dict the dashboard renders.
+    """Normalise a response into the dict the dashboard renders.
 
-    Every key is always present with an int/str/bool value.  render() indexes
-    these without guards, and display/runtime.py:run() has no try/except above
-    it, so a None here would take down the whole process rather than just the
-    weather corner.
+    Every key is always present: render() indexes these unguarded and has no
+    try/except above it, so a None would take down the process.
     """
     current = payload.get("current") or {}
 

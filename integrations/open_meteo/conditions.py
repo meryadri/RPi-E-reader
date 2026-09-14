@@ -85,6 +85,6 @@ def c_to_f(celsius: float) -> int:
     """Celsius to whole Fahrenheit degrees.
 
     round() rather than int(), which truncates toward zero and would be wrong by
-    a degree for the negative temperatures Boston gets all winter.
+    a degree for sub-zero temperatures.
     """
     return round(celsius * 9 / 5 + 32)

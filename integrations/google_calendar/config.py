@@ -6,7 +6,9 @@ the laptop without a code change.
 """
 from __future__ import annotations
 import os
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # --- Paths ------------------------------------------------------------------
 
@@ -34,11 +36,20 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
 # --- Time zone --------------------------------------------------------------
 
-# Set explicitly rather than trusting the system clock.  A freshly imaged
-# Raspberry Pi OS runs on UTC until `timedatectl set-timezone` is run, which
-# would roll the dashboard over to "tomorrow" at 8pm Eastern — and would work
-# perfectly on the laptop, so you would never catch it in the simulator.
-TIMEZONE = os.environ.get("GCAL_TZ", "America/New_York")
+# A fresh Raspberry Pi OS runs on UTC until `timedatectl set-timezone` is run,
+# which would roll the day over at the wrong hour.  Set the Pi's zone, or
+# override here.
+TIMEZONE = os.environ.get("GCAL_TZ", "")
+
+
+def tz():
+    """The zone used to decide what 'today' is; system local unless GCAL_TZ is set."""
+    if TIMEZONE:
+        try:
+            return ZoneInfo(TIMEZONE)
+        except Exception:
+            pass
+    return datetime.now().astimezone().tzinfo
 
 # --- Refresh cadence --------------------------------------------------------
 

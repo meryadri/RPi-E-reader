@@ -20,7 +20,7 @@ from . import config, stats, store
 
 @dataclass(frozen=True)
 class Snapshot:
-    """An immutable view of today's checklist."""
+    """Replaced wholesale, never mutated."""
     habits: tuple[str, ...] = ()
     done: frozenset[str] = frozenset()
     streaks: dict[str, int] = field(default_factory=dict)
@@ -92,7 +92,7 @@ def toggle(habit: str) -> bool:
         store.set_done(_log, day, habit, now_done)
         log_copy = {k: list(v) for k, v in _log.items()}
 
-    # Written outside the lock so a slow disk cannot stall the render thread.
+    # Outside the lock: a slow disk must not stall the render thread.
     store.save_log(log_copy)
     _publish_for(list(snap.habits), day)
     return now_done
@@ -105,7 +105,7 @@ def get_log() -> dict[str, list[str]]:
 
 
 def _publish_for(habits: list[str], day: date) -> None:
-    """Rebuild the snapshot, bumping version only if the panel would differ."""
+    """Bump version only when the panel would differ."""
     global _snapshot
     with _lock:
         done = frozenset(store.done_on(_log, day))

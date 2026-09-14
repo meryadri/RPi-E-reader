@@ -177,11 +177,6 @@ def test_month_grid_marks_completions():
     assert by_day[14] == "done"
 
 
-def test_day_progress():
-    log = {MON.isoformat(): ["A", "B"]}
-    assert stats.day_progress(log, ["A", "B", "C"], MON) == (2, 3)
-
-
 # --- store -----------------------------------------------------------------
 
 @pytest.fixture
